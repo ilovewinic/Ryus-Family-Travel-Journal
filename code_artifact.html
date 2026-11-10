@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>우리의 길 & 들 - 가족 여행 & 등산 일지</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts (Noto Sans KR & Playfair Display) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sage: {
+              50: '#f4f7f4',
+              100: '#e5ede5',
+              200: '#cedece',
+              300: '#abc4ab',
+              400: '#83a483',
+              500: '#628562',
+              600: '#4c6a4c',
+              700: '#3d543d',
+              800: '#334433',
+              900: '#2b392b',
+            },
+            earth: {
+              50: '#fbf9f5',
+              100: '#f6f0e6',
+              200: '#eadabf',
+              300: '#dcbe93',
+              400: '#cb9f67',
+              500: '#be8746',
+              600: '#af713a',
+              700: '#915932',
+              800: '#75482e',
+              900: '#603b29',
+            }
+          },
+          fontFamily: {
+            sans: ['Noto Sans KR', 'sans-serif'],
+            serif: ['Playfair Display', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #f6f0e6;
+      color: #334433;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f4f7f4;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cedece;
+      border-radius: 4px;
+    }
+    .glass-nav {
+      background: rgba(246, 240, 230, 0.85);
+      backdrop-filter: blur(12px);
+    }
+  </style>
+
+  <!-- ES Modules Integration for Supabase & Cloudflare R2 AWS SDK -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { S3Client, PutObjectCommand } from 'https://cdn.jsdelivr.net/npm/@aws-sdk/client-s3@3.500.0/+esm';
+
+    window.supabaseModule = { createClient };
+    window.s3Module = { S3Client, PutObjectCommand };
+  </script>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <!-- Header Section -->
+  <header class="sticky top-0 z-30 glass-nav border-b border-earth-200/60 shadow-sm transition-all">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Logo & Title -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="resetFilters()">
+        <div class="w-11 h-11 rounded-2xl bg-sage-600 text-white flex items-center justify-center shadow-md shadow-sage-700/20">
+          <i data-lucide="trees" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold font-serif text-sage-900 tracking-tight">우리의 길 & 들</h1>
+          <p class="text-xs text-earth-700 font-medium">가족 여행 & 등산 추억일지</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- System Status Badge -->
+        <button id="statusBadge" onclick="openSettingsModal()" class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 transition">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span>데모 모드</span>
+        </button>
+
+        <!-- New Post Button -->
+        <button onclick="openWriteModal()" class="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-sage-700 hover:bg-sage-800 text-white font-medium text-sm shadow-sm hover:shadow transition transform active:scale-95">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">새 기록 쓰기</span>
+          <span class="sm:hidden">쓰기</span>
+        </button>
+
+        <!-- Config Button -->
+        <button onclick="openSettingsModal()" class="p-2.5 rounded-xl bg-earth-100 hover:bg-earth-200 text-sage-800 transition border border-earth-200" title="API / DB 설정">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Dashboard Quick Stats -->
+    <section class="grid grid-cols-3 gap-3 sm:gap-6">
+      <div class="bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl border border-earth-200 shadow-sm flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-4 text-center sm:text-left">
+        <div class="p-3 rounded-xl bg-sage-100 text-sage-700 shrink-0">
+          <i data-lucide="map-pin" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="text-xs font-semibold uppercase text-sage-600 tracking-wider">총 여행 횟수</span>
+          <p id="statTotalTrips" class="text-2xl sm:text-3xl font-bold text-sage-900 mt-0.5">0</p>
+        </div>
+      </div>
+
+      <div class="bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl border border-earth-200 shadow-sm flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-4 text-center sm:text-left">
+        <div class="p-3 rounded-xl bg-earth-100 text-earth-700 shrink-0">
+          <i data-lucide="mountain" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="text-xs font-semibold uppercase text-earth-600 tracking-wider">정상 등반</span>
+          <p id="statHikingCount" class="text-2xl sm:text-3xl font-bold text-earth-900 mt-0.5">0</p>
+        </div>
+      </div>
+
+      <div class="bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl border border-earth-200 shadow-sm flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-4 text-center sm:text-left">
+        <div class="p-3 rounded-xl bg-emerald-100 text-emerald-700 shrink-0">
+          <i data-lucide="camera" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="text-xs font-semibold uppercase text-emerald-600 tracking-wider">저장된 사진</span>
+          <p id="statPhotosCount" class="text-2xl sm:text-3xl font-bold text-sage-900 mt-0.5">0</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters & Search Toolbar -->
+    <section class="flex flex-col md:flex-row gap-4 items-center justify-between">
+      <!-- Category Tabs -->
+      <div class="flex items-center space-x-1.5 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 custom-scrollbar">
+        <button onclick="setCategoryFilter('all')" data-cat="all" class="cat-btn px-4 py-2 rounded-xl text-sm font-medium transition shrink-0 bg-sage-700 text-white shadow-sm">
+          전체 보기
+        </button>
+        <button onclick="setCategoryFilter('hiking')" data-cat="hiking" class="cat-btn px-4 py-2 rounded-xl text-sm font-medium transition shrink-0 bg-white/80 text-sage-800 hover:bg-earth-100 border border-earth-200">
+          🏔️ 등산
+        </button>
+        <button onclick="setCategoryFilter('camping')" data-cat="camping" class="cat-btn px-4 py-2 rounded-xl text-sm font-medium transition shrink-0 bg-white/80 text-sage-800 hover:bg-earth-100 border border-earth-200">
+          ⛺ 캠핑
+        </button>
+        <button onclick="setCategoryFilter('travel')" data-cat="travel" class="cat-btn px-4 py-2 rounded-xl text-sm font-medium transition shrink-0 bg-white/80 text-sage-800 hover:bg-earth-100 border border-earth-200">
+          🚗 여행
+        </button>
+        <button onclick="setCategoryFilter('daily')" data-cat="daily" class="cat-btn px-4 py-2 rounded-xl text-sm font-medium transition shrink-0 bg-white/80 text-sage-800 hover:bg-earth-100 border border-earth-200">
+          👨‍👩‍👧‍👦 일상
+        </button>
+      </div>
+
+      <!-- Search Input -->
+      <div class="relative w-full md:w-72">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-500"></i>
+        <input type="text" id="searchInput" oninput="handleSearch()" placeholder="제목, 장소, 내용 검색..." class="w-full pl-10 pr-4 py-2 rounded-xl bg-white/80 border border-earth-200 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 transition shadow-sm placeholder:text-earth-400">
+      </div>
+    </section>
+
+    <!-- Journal Cards Grid -->
+    <section id="journalGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Dynamic Cards will be rendered here -->
+    </section>
+
+    <!-- Empty State Container -->
+    <div id="emptyState" class="hidden text-center py-16 bg-white/50 rounded-3xl border border-dashed border-earth-300">
+      <div class="w-16 h-16 bg-earth-100 text-earth-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="compass" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-lg font-bold text-sage-900">등록된 여행 기록이 없습니다</h3>
+      <p class="text-sm text-earth-600 mt-1 max-w-sm mx-auto">첫 번째 소중한 가족 추억을 기록해 보세요!</p>
+      <button onclick="openWriteModal()" class="mt-4 px-4 py-2 bg-sage-700 hover:bg-sage-800 text-white text-sm font-medium rounded-xl shadow transition">
+        일지 쓰기 시작하기
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-earth-200/80 bg-earth-100/50 py-6 text-center text-xs text-earth-600">
+    <p>© 우리의 길 & 들 — 소중한 가족의 순간들을 영원히 기록합니다.</p>
+  </footer>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. Settings & Config Modal -->
+  <div id="settingsModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sage-900/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-earth-200 max-h-[90vh] overflow-y-auto custom-scrollbar transform scale-95 transition-transform duration-200">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-earth-100">
+        <div class="flex items-center space-x-2">
+          <div class="p-2 rounded-lg bg-earth-100 text-earth-700">
+            <i data-lucide="database" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-sage-900">연동 데이터베이스 및 저장소 설정</h3>
+            <p class="text-xs text-earth-600">Cloudflare R2 & Supabase 접속 키를 등록합니다.</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="p-1 rounded-lg text-earth-400 hover:text-earth-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-6 py-4">
+        
+        <!-- Supabase Section -->
+        <div class="space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-sage-700 flex items-center space-x-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Supabase 설정 (텍스트 DB)</span>
+          </h4>
+          <div>
+            <label class="block text-xs font-semibold text-earth-700 mb-1">Project URL</label>
+            <input type="text" id="cfgSupabaseUrl" placeholder="https://xxxx.supabase.co" class="w-full px-3 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-earth-700 mb-1">Anon / Public API Key</label>
+            <input type="password" id="cfgSupabaseKey" placeholder="eyJhbGciOi..." class="w-full px-3 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+          </div>
+        </div>
+
+        <hr class="border-earth-100">
+
+        <!-- Cloudflare R2 Section -->
+        <div class="space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-sage-700 flex items-center space-x-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>Cloudflare R2 설정 (사진 저장소)</span>
+          </h4>
+          <div>
+            <label class="block text-xs font-semibold text-earth-700 mb-1">S3 Endpoint URL</label>
+            <input type="text" id="cfgR2Endpoint" placeholder="https://<ACCOUNT_ID>.r2.cloudflarestorage.com" class="w-full px-3 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-earth-700 mb-1">Access Key ID</label>
+              <input type="text" id="cfgR2AccessKey" placeholder="Access Key ID" class="w-full px-3 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-earth-700 mb-1">Secret Access Key</label>
+              <input type="password" id="cfgR2SecretKey" placeholder="Secret Access Key" class="w-full px-3 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-earth-700 mb-1">Bucket 이름</label>
+              <input type="text" id="cfgR2Bucket" placeholder="ryus-family-journal-photos" class="w-full px-3 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-earth-700 mb-1">Public URL Domain (r2.dev)</label>
+              <input type="text" id="cfgR2PublicDomain" placeholder="https://pub-xxx.r2.dev" class="w-full px-3 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-earth-100 rounded-xl text-xs text-earth-700 leading-relaxed">
+          💡 입력된 모든 인증 정보는 브라우저 내부(localStorage)에만 안전하게 저장되며 외부 서버로 전달되지 않습니다. 설정 미입력 시 <strong>로컬 데모 모드</strong>로 작동합니다.
+        </div>
+
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-4 border-t border-earth-100">
+        <button onclick="clearConfig()" class="px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition">초기화</button>
+        <button onclick="saveConfig()" class="px-5 py-2.5 bg-sage-700 hover:bg-sage-800 text-white text-xs font-medium rounded-xl shadow transition">설정 저장 및 연결 테스트</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 2. Write / Create Journal Entry Modal -->
+  <div id="writeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sage-900/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-earth-200 max-h-[90vh] overflow-y-auto custom-scrollbar transform scale-95 transition-transform duration-200">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-earth-100">
+        <h3 class="text-xl font-bold font-serif text-sage-900">새로운 여행/등산 기록하기</h3>
+        <button onclick="closeWriteModal()" class="p-1 rounded-lg text-earth-400 hover:text-earth-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="writeForm" onsubmit="handleFormSubmit(event)" class="space-y-5 py-4">
+        
+        <!-- Category Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-earth-700 mb-2">카테고리</label>
+          <div class="grid grid-cols-4 gap-2">
+            <label class="cursor-pointer">
+              <input type="radio" name="category" value="hiking" checked class="peer sr-only">
+              <div class="p-2.5 rounded-xl border border-earth-200 text-center text-xs font-medium text-earth-700 peer-checked:bg-sage-600 peer-checked:text-white peer-checked:border-sage-600 transition">
+                🏔️ 등산
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="category" value="camping" class="peer sr-only">
+              <div class="p-2.5 rounded-xl border border-earth-200 text-center text-xs font-medium text-earth-700 peer-checked:bg-sage-600 peer-checked:text-white peer-checked:border-sage-600 transition">
+                ⛺ 캠핑
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="category" value="travel" class="peer sr-only">
+              <div class="p-2.5 rounded-xl border border-earth-200 text-center text-xs font-medium text-earth-700 peer-checked:bg-sage-600 peer-checked:text-white peer-checked:border-sage-600 transition">
+                🚗 여행
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="category" value="daily" class="peer sr-only">
+              <div class="p-2.5 rounded-xl border border-earth-200 text-center text-xs font-medium text-earth-700 peer-checked:bg-sage-600 peer-checked:text-white peer-checked:border-sage-600 transition">
+                👨‍👩‍👧‍👦 일상
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Title & Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-earth-700 mb-1">일지 제목 *</label>
+            <input type="text" id="postTitle" required placeholder="예: 북한산 백운대 가족 가을 등산" class="w-full px-4 py-2.5 text-sm rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-earth-700 mb-1">방문 날짜 *</label>
+            <input type="date" id="postDate" required class="w-full px-4 py-2.5 text-sm rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+          </div>
+        </div>
+
+        <!-- Location -->
+        <div>
+          <label class="block text-xs font-semibold text-earth-700 mb-1">장소 / 코스 이름 *</label>
+          <input type="text" id="postLocation" required placeholder="예: 서울 북한산국립공원 (우이동 코스)" class="w-full px-4 py-2.5 text-sm rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+        </div>
+
+        <!-- Photo Upload Box -->
+        <div>
+          <label class="block text-xs font-semibold text-earth-700 mb-1">대표 사진 업로드</label>
+          <div class="relative border-2 border-dashed border-earth-300 hover:border-sage-500 rounded-2xl p-4 text-center cursor-pointer transition bg-earth-50/50" onclick="document.getElementById('photoInput').click()">
+            <input type="file" id="photoInput" accept="image/*" class="hidden" onchange="previewImage(event)">
+            
+            <div id="uploadPlaceholder" class="space-y-2">
+              <i data-lucide="image-plus" class="w-8 h-8 text-earth-500 mx-auto"></i>
+              <p class="text-xs text-earth-600 font-medium">클릭하여 사진 추가 (또는 드래그앤드롭)</p>
+              <p class="text-[10px] text-earth-400">Cloudflare R2 자동 업로드 연동</p>
+            </div>
+
+            <!-- Image Preview Box -->
+            <div id="imagePreviewContainer" class="hidden relative">
+              <img id="imagePreview" src="" alt="미리보기" class="max-h-56 mx-auto rounded-xl object-cover shadow-sm">
+              <button type="button" onclick="event.stopPropagation(); removeImage();" class="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-full shadow hover:bg-rose-700 transition">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div>
+          <label class="block text-xs font-semibold text-earth-700 mb-1">추억과 이야기 *</label>
+          <textarea id="postContent" required rows="5" placeholder="오늘 등산과 여행에서 함께한 가족들의 신나고 감동적인 순간을 자유롭게 적어보세요..." class="w-full px-4 py-3 text-sm rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500 custom-scrollbar"></textarea>
+        </div>
+
+        <!-- Admin Pin Optional -->
+        <div class="pt-2">
+          <label class="block text-xs font-semibold text-earth-700 mb-1">작성자 확인 비밀번호 (선택)</label>
+          <input type="password" id="postPin" placeholder="수정/삭제 시 사용할 간단한 PIN (예: 1234)" class="w-64 px-4 py-2 text-xs rounded-xl bg-earth-50 border border-earth-200 focus:outline-none focus:ring-2 focus:ring-sage-500">
+        </div>
+
+        <!-- Submit Button -->
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-earth-100">
+          <button type="button" onclick="closeWriteModal()" class="px-4 py-2 text-xs font-medium text-earth-600 hover:bg-earth-100 rounded-xl transition">취소</button>
+          <button type="submit" id="saveSubmitBtn" class="flex items-center space-x-2 px-6 py-2.5 bg-sage-700 hover:bg-sage-800 text-white text-sm font-medium rounded-xl shadow transition">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>일지 저장하기</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- 3. Detail View Modal -->
+  <div id="detailModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sage-900/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-earth-200 max-h-[90vh] overflow-y-auto custom-scrollbar transform scale-95 transition-transform duration-200">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-earth-100">
+        <div id="detailBadges" class="flex items-center space-x-2">
+          <!-- Category & Date badge -->
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="deleteEntryBtn" onclick="deleteCurrentEntry()" class="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition" title="삭제">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+          </button>
+          <button onclick="closeDetailModal()" class="p-1 rounded-lg text-earth-400 hover:text-earth-700">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-6 py-4">
+        <!-- Title & Location -->
+        <div>
+          <h2 id="detailTitle" class="text-2xl sm:text-3xl font-bold font-serif text-sage-900"></h2>
+          <p id="detailLocation" class="flex items-center space-x-1.5 text-xs text-earth-700 mt-2 font-medium">
+            <i data-lucide="map-pin" class="w-4 h-4 text-earth-500"></i>
+            <span></span>
+          </p>
+        </div>
+
+        <!-- Full Photo -->
+        <div id="detailPhotoContainer" class="rounded-2xl overflow-hidden bg-earth-100 border border-earth-200">
+          <img id="detailPhoto" src="" alt="여행 사진" class="w-full max-h-[450px] object-cover">
+        </div>
+
+        <!-- Story Content -->
+        <div class="prose max-w-none">
+          <h4 class="text-xs font-semibold text-earth-500 uppercase tracking-wider mb-2">가족 추억 기록</h4>
+          <p id="detailContent" class="text-sage-900 text-sm sm:text-base leading-relaxed whitespace-pre-line bg-earth-50/60 p-5 rounded-2xl border border-earth-100"></p>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-4 border-t border-earth-100">
+        <button onclick="closeDetailModal()" class="px-5 py-2 bg-earth-200 hover:bg-earth-300 text-earth-800 text-xs font-medium rounded-xl transition">닫기</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Javascript App Logic -->
+  <script>
+    // State Management
+    let config = {
+      supabaseUrl: '',
+      supabaseKey: '',
+      r2Endpoint: '',
+      r2AccessKey: '',
+      r2SecretKey: '',
+      r2Bucket: '',
+      r2PublicDomain: ''
+    };
+
+    let journals = [];
+    let currentCategory = 'all';
+    let searchQuery = '';
+    let selectedImageFile = null;
+    let currentDetailId = null;
+
+    let supabaseClient = null;
+    let s3Client = null;
+
+    // Default Mock Data for Instant Demo
+    const mockData = [
+      {
+        id: 'demo-1',
+        title: '북한산 백운대 가을 정기 등산 🏔️',
+        category: 'hiking',
+        visit_date: '2026-10-18',
+        location: '서울 북한산 국립공원',
+        content: '맑은 가을 하늘 아래 아이들과 함께 북한산 백운대 정상에 올랐습니다.\n단풍이 무척 예쁘게 물들어 있어서 정성껏 도시락을 먹고 기념사진을 촬영했습니다. 아이가 스스로 정상까지 완주해서 더욱 대견했던 날!',
+        photo_url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+        created_at: new Date().toISOString()
+      },
+      {
+        id: 'demo-2',
+        title: '태안 만리포 해변 감성 캠핑 ⛺',
+        category: 'camping',
+        visit_date: '2026-09-05',
+        location: '충남 태안 만리포 캠핑장',
+        content: '바다 소리를 들으며 지낸 2박 3일 힐링 캠핑.\n저녁에는 맛있는 바베큐와 함께 밤하늘 별을 구경했습니다. 파도 소리와 함께 따뜻한 장작 불멍을 즐겼던 낭만적인 밤.',
+        photo_url: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=1000&q=80',
+        created_at: new Date().toISOString()
+      },
+      {
+        id: 'demo-3',
+        title: '제주도 힐링 드라이브 여행 🚗',
+        category: 'travel',
+        visit_date: '2026-06-12',
+        location: '제주 서귀포 & 애월 해안도로',
+        content: '에메랄드빛 제주 바다를 따라 가벼운 마음으로 가족 드라이브를 다녀왔습니다.\n수국이 만발한 카페에서 맛있는 파이와 에이드를 먹으며 찍은 스냅사진들이 정말 마음에 듭니다.',
+        photo_url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1000&q=80',
+        created_at: new Date().toISOString()
+      }
+    ];
+
+    // Initialize App
+    window.onload = () => {
+      lucide.createIcons();
+      loadConfigFromStorage();
+      initClients();
+      fetchJournals();
+
+      // Today default date for form
+      document.getElementById('postDate').value = new Date().toISOString().split('T')[0];
+    };
+
+    // Load Local Storage Config
+    function loadConfigFromStorage() {
+      const saved = localStorage.getItem('family_journal_config');
+      if (saved) {
+        try {
+          config = JSON.parse(saved);
+          document.getElementById('cfgSupabaseUrl').value = config.supabaseUrl || '';
+          document.getElementById('cfgSupabaseKey').value = config.supabaseKey || '';
+          document.getElementById('cfgR2Endpoint').value = config.r2Endpoint || '';
+          document.getElementById('cfgR2AccessKey').value = config.r2AccessKey || '';
+          document.getElementById('cfgR2SecretKey').value = config.r2SecretKey || '';
+          document.getElementById('cfgR2Bucket').value = config.r2Bucket || '';
+          document.getElementById('cfgR2PublicDomain').value = config.r2PublicDomain || '';
+        } catch(e) {
+          console.error(e);
+        }
+      }
+    }
+
+    // Initialize Supabase & Cloudflare R2 Clients
+    function initClients() {
+      const isSupabaseConfigured = config.supabaseUrl && config.supabaseKey;
+      const isR2Configured = config.r2Endpoint && config.r2AccessKey && config.r2SecretKey && config.r2Bucket;
+
+      const badge = document.getElementById('statusBadge');
+
+      if (isSupabaseConfigured) {
+        try {
+          supabaseClient = window.supabaseModule.createClient(config.supabaseUrl, config.supabaseKey);
+        } catch(e) {
+          console.error("Supabase init error:", e);
+        }
+      } else {
+        supabaseClient = null;
+      }
+
+      if (isR2Configured) {
+        try {
+          s3Client = new window.s3Module.S3Client({
+            region: 'auto',
+            endpoint: config.r2Endpoint,
+            credentials: {
+              accessKeyId: config.r2AccessKey,
+              secretAccessKey: config.r2SecretKey,
+            }
+          });
+        } catch(e) {
+          console.error("R2 S3 init error:", e);
+        }
+      } else {
+        s3Client = null;
+      }
+
+      // Update Top Status Badge
+      if (isSupabaseConfigured && isR2Configured) {
+        badge.className = "hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 transition cursor-pointer";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>R2 & Supabase 연결됨</span>`;
+      } else {
+        badge.className = "hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 transition cursor-pointer";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span><span>로컬 데모 모드 (설정 클릭)</span>`;
+      }
+    }
+
+    // Save Config to Storage
+    function saveConfig() {
+      config = {
+        supabaseUrl: document.getElementById('cfgSupabaseUrl').value.trim(),
+        supabaseKey: document.getElementById('cfgSupabaseKey').value.trim(),
+        r2Endpoint: document.getElementById('cfgR2Endpoint').value.trim(),
+        r2AccessKey: document.getElementById('cfgR2AccessKey').value.trim(),
+        r2SecretKey: document.getElementById('cfgR2SecretKey').value.trim(),
+        r2Bucket: document.getElementById('cfgR2Bucket').value.trim(),
+        r2PublicDomain: document.getElementById('cfgR2PublicDomain').value.trim(),
+      };
+
+      localStorage.setItem('family_journal_config', JSON.stringify(config));
+      initClients();
+      closeSettingsModal();
+      showToast("설정이 저장되었습니다. 데이터를 불러옵니다.", "success");
+      fetchJournals();
+    }
+
+    function clearConfig() {
+      localStorage.removeItem('family_journal_config');
+      config = { supabaseUrl: '', supabaseKey: '', r2Endpoint: '', r2AccessKey: '', r2SecretKey: '', r2Bucket: '', r2PublicDomain: '' };
+      document.querySelectorAll('#settingsModal input').forEach(input => input.value = '');
+      initClients();
+      showToast("설정이 초기화되었습니다.", "info");
+      fetchJournals();
+    }
+
+    // Fetch Journals Data
+    async function fetchJournals() {
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient
+            .from('journals')
+            .select('*')
+            .order('visit_date', { ascending: false });
+
+          if (error) throw error;
+          journals = data || [];
+        } catch (err) {
+          console.warn("Supabase fetch error, fallback to mock data:", err);
+          showToast("Supabase 연결 실패. 데모 데이터를 표기합니다.", "error");
+          loadLocalJournals();
+        }
+      } else {
+        loadLocalJournals();
+      }
+      renderUI();
+    }
+
+    function loadLocalJournals() {
+      const localStored = localStorage.getItem('family_journals_data');
+      if (localStored) {
+        journals = JSON.parse(localStored);
+      } else {
+        journals = [...mockData];
+      }
+    }
+
+    function saveLocalJournals() {
+      localStorage.setItem('family_journals_data', JSON.stringify(journals));
+    }
+
+    // Render Cards & Dashboard Stats
+    function renderUI() {
+      const grid = document.getElementById('journalGrid');
+      const empty = document.getElementById('emptyState');
+      grid.innerHTML = '';
+
+      // Filter Logic
+      const filtered = journals.filter(item => {
+        const matchesCategory = currentCategory === 'all' || item.category === currentCategory;
+        const matchesQuery = !searchQuery || 
+          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.content.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesQuery;
+      });
+
+      // Update Statistics
+      document.getElementById('statTotalTrips').innerText = journals.length;
+      document.getElementById('statHikingCount').innerText = journals.filter(j => j.category === 'hiking').length;
+      document.getElementById('statPhotosCount').innerText = journals.filter(j => j.photo_url).length;
+
+      if (filtered.length === 0) {
+        grid.classList.add('hidden');
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      grid.classList.remove('hidden');
+      empty.classList.add('hidden');
+
+      // Render Each Card
+      filtered.forEach(item => {
+        const catBadge = getCategoryBadge(item.category);
+        const card = document.createElement('div');
+        card.className = "group bg-white rounded-3xl overflow-hidden border border-earth-200/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer transform hover:-translate-y-1";
+        card.onclick = () => openDetailModal(item.id);
+
+        const photoHtml = item.photo_url 
+          ? `<div class="relative h-48 sm:h-52 overflow-hidden bg-earth-100">
+              <img src="${item.photo_url}" alt="${item.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://placehold.co/600x400/e5ede5/3d543d?text=No+Photo'">
+              <div class="absolute top-3 left-3">${catBadge}</div>
+             </div>`
+          : `<div class="relative h-32 bg-earth-100 flex items-center justify-center text-earth-400">
+              <i data-lucide="image" class="w-8 h-8"></i>
+              <div class="absolute top-3 left-3">${catBadge}</div>
+             </div>`;
+
+        card.innerHTML = `
+          ${photoHtml}
+          <div class="p-5 flex flex-col flex-grow justify-between space-y-4">
+            <div>
+              <div class="flex items-center space-x-1.5 text-xs text-earth-600 mb-1.5 font-medium">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-earth-500"></i>
+                <span>${item.visit_date}</span>
+              </div>
+              <h3 class="text-lg font-bold text-sage-900 group-hover:text-sage-700 transition line-clamp-1">${item.title}</h3>
+              <p class="text-xs text-earth-700 flex items-center space-x-1 mt-1 font-medium">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-earth-500"></i>
+                <span class="line-clamp-1">${item.location}</span>
+              </p>
+              <p class="text-xs text-earth-600 mt-3 line-clamp-2 leading-relaxed">${item.content}</p>
+            </div>
+            <div class="pt-3 border-t border-earth-100 flex items-center justify-between text-xs font-semibold text-sage-700 group-hover:text-sage-900">
+              <span>추억 읽기</span>
+              <i data-lucide="arrow-right" class="w-4 h-4 transform group-hover:translate-x-1 transition"></i>
+            </div>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    // Helper: Category Badges
+    function getCategoryBadge(cat) {
+      switch(cat) {
+        case 'hiking':
+          return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-700/90 text-white backdrop-blur-md shadow-sm">🏔️ 등산</span>`;
+        case 'camping':
+          return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-700/90 text-white backdrop-blur-md shadow-sm">⛺ 캠핑</span>`;
+        case 'travel':
+          return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-700/90 text-white backdrop-blur-md shadow-sm">🚗 여행</span>`;
+        default:
+          return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-700/90 text-white backdrop-blur-md shadow-sm">👨‍👩‍👧‍👦 일상</span>`;
+      }
+    }
+
+    // Image Upload Handler (R2 / Base64)
+    function previewImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      selectedImageFile = file;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('imagePreview').src = e.target.result;
+        document.getElementById('uploadPlaceholder').classList.add('hidden');
+        document.getElementById('imagePreviewContainer').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeImage() {
+      selectedImageFile = null;
+      document.getElementById('photoInput').value = '';
+      document.getElementById('uploadPlaceholder').classList.remove('hidden');
+      document.getElementById('imagePreviewContainer').classList.add('hidden');
+    }
+
+    // R2 S3 Upload Function
+    async function uploadPhotoToR2(file) {
+      if (!s3Client || !config.r2Bucket) {
+        // Fallback to base64 preview for demo mode
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `journal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExtension}`;
+
+      const command = new window.s3Module.PutObjectCommand({
+        Bucket: config.r2Bucket,
+        Key: fileName,
+        Body: file,
+        ContentType: file.type
+      });
+
+      await s3Client.send(command);
+
+      // Return Public URL
+      const publicDomain = config.r2PublicDomain.replace(/\/$/, '');
+      return `${publicDomain}/${fileName}`;
+    }
+
+    // Handle Form Submit
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('saveSubmitBtn');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>저장 중...</span>`;
+      lucide.createIcons();
+
+      try {
+        let photoUrl = '';
+        if (selectedImageFile) {
+          photoUrl = await uploadPhotoToR2(selectedImageFile);
+        }
+
+        const category = document.querySelector('input[name="category"]:checked').value;
+        const title = document.getElementById('postTitle').value.trim();
+        const visit_date = document.getElementById('postDate').value;
+        const location = document.getElementById('postLocation').value.trim();
+        const content = document.getElementById('postContent').value.trim();
+        const pin = document.getElementById('postPin').value.trim();
+
+        const newEntry = {
+          title,
+          category,
+          visit_date,
+          location,
+          content,
+          photo_url: photoUrl,
+          pin: pin || null
+        };
+
+        if (supabaseClient) {
+          const { data, error } = await supabaseClient
+            .from('journals')
+            .insert([newEntry]);
+          
+          if (error) throw error;
+        } else {
+          // Local storage fallback
+          newEntry.id = `local-${Date.now()}`;
+          newEntry.created_at = new Date().toISOString();
+          journals.unshift(newEntry);
+          saveLocalJournals();
+        }
+
+        showToast("추억 일지가 성공적으로 작성되었습니다!", "success");
+        closeWriteModal();
+        fetchJournals();
+      } catch (err) {
+        console.error(err);
+        showToast("저장 중 오류가 발생했습니다: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>일지 저장하기</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    // Filter Controls
+    function setCategoryFilter(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.className = "cat-btn px-4 py-2 rounded-xl text-sm font-medium transition shrink-0 bg-sage-700 text-white shadow-sm";
+        } else {
+          btn.className = "cat-btn px-4 py-2 rounded-xl text-sm font-medium transition shrink-0 bg-white/80 text-sage-800 hover:bg-earth-100 border border-earth-200";
+        }
+      });
+      renderUI();
+    }
+
+    function handleSearch() {
+      searchQuery = document.getElementById('searchInput').value;
+      renderUI();
+    }
+
+    function resetFilters() {
+      currentCategory = 'all';
+      searchQuery = '';
+      document.getElementById('searchInput').value = '';
+      setCategoryFilter('all');
+    }
+
+    // Modal Display Trigger Functions
+    function openSettingsModal() {
+      const m = document.getElementById('settingsModal');
+      m.classList.remove('hidden');
+      setTimeout(() => {
+        m.classList.remove('opacity-0');
+        m.children[0].classList.remove('scale-95');
+      }, 10);
+    }
+
+    function closeSettingsModal() {
+      const m = document.getElementById('settingsModal');
+      m.classList.add('opacity-0');
+      m.children[0].classList.add('scale-95');
+      setTimeout(() => m.classList.add('hidden'), 200);
+    }
+
+    function openWriteModal() {
+      document.getElementById('writeForm').reset();
+      removeImage();
+      document.getElementById('postDate').value = new Date().toISOString().split('T')[0];
+      const m = document.getElementById('writeModal');
+      m.classList.remove('hidden');
+      setTimeout(() => {
+        m.classList.remove('opacity-0');
+        m.children[0].classList.remove('scale-95');
+      }, 10);
+    }
+
+    function closeWriteModal() {
+      const m = document.getElementById('writeModal');
+      m.classList.add('opacity-0');
+      m.children[0].classList.add('scale-95');
+      setTimeout(() => m.classList.add('hidden'), 200);
+    }
+
+    function openDetailModal(id) {
+      const item = journals.find(j => j.id === id);
+      if (!item) return;
+
+      currentDetailId = id;
+
+      document.getElementById('detailBadges').innerHTML = `
+        ${getCategoryBadge(item.category)}
+        <span class="text-xs text-earth-600 font-medium">${item.visit_date}</span>
+      `;
+      document.getElementById('detailTitle').innerText = item.title;
+      document.getElementById('detailLocation').querySelector('span').innerText = item.location;
+      document.getElementById('detailContent').innerText = item.content;
+
+      const photoContainer = document.getElementById('detailPhotoContainer');
+      if (item.photo_url) {
+        document.getElementById('detailPhoto').src = item.photo_url;
+        photoContainer.classList.remove('hidden');
+      } else {
+        photoContainer.classList.add('hidden');
+      }
+
+      const m = document.getElementById('detailModal');
+      m.classList.remove('hidden');
+      setTimeout(() => {
+        m.classList.remove('opacity-0');
+        m.children[0].classList.remove('scale-95');
+      }, 10);
+    }
+
+    function closeDetailModal() {
+      const m = document.getElementById('detailModal');
+      m.classList.add('opacity-0');
+      m.children[0].classList.add('scale-95');
+      setTimeout(() => m.classList.add('hidden'), 200);
+    }
+
+    // Delete Entry Logic
+    async function deleteCurrentEntry() {
+      if (!currentDetailId) return;
+
+      const item = journals.find(j => j.id === currentDetailId);
+      if (item && item.pin) {
+        const inputPin = prompt("일지 삭제를 위해 입력하셨던 PIN 번호를 입력하세요:");
+        if (inputPin !== item.pin) {
+          showToast("비밀번호가 일치하지 않습니다.", "error");
+          return;
+        }
+      } else {
+        if (!confirm("정말로 이 소중한 추억 기록을 삭제하시겠습니까?")) return;
+      }
+
+      try {
+        if (supabaseClient && !currentDetailId.toString().startsWith('local-') && !currentDetailId.toString().startsWith('demo-')) {
+          const { error } = await supabaseClient
+            .from('journals')
+            .delete()
+            .eq('id', currentDetailId);
+          if (error) throw error;
+        } else {
+          journals = journals.filter(j => j.id !== currentDetailId);
+          saveLocalJournals();
+        }
+
+        showToast("일지가 삭제되었습니다.", "info");
+        closeDetailModal();
+        fetchJournals();
+      } catch(err) {
+        console.error(err);
+        showToast("삭제 중 오류가 발생했습니다.", "error");
+      }
+    }
+
+    // Toast Notification System
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      let bg = 'bg-sage-800 text-white';
+      if (type === 'success') bg = 'bg-emerald-700 text-white';
+      if (type === 'error') bg = 'bg-rose-700 text-white';
+
+      toast.className = `${bg} px-4 py-3 rounded-2xl shadow-xl text-xs font-medium transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-auto flex items-center space-x-2`;
+      toast.innerHTML = `<span>${message}</span>`;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
