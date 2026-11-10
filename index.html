@@ -28,11 +28,11 @@
                 <h1 class="font-bold text-xl text-slate-800">우리의 길 & 들</h1>
             </div>
             <div class="flex items-center space-x-2">
-                <button onclick="openModal('writeModal')" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-1">
+                <button id="openWriteBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-1 cursor-pointer">
                     <i class="fa-solid fa-pen"></i>
                     <span class="hidden sm:inline">새 기록 추가</span>
                 </button>
-                <button onclick="openModal('settingsModal')" class="p-2 text-slate-700 hover:bg-gray-100 rounded-lg transition" title="설정">
+                <button id="openSettingsBtn" class="p-2 text-slate-700 hover:bg-gray-100 rounded-lg transition cursor-pointer" title="설정">
                     <i class="fa-solid fa-gear text-lg"></i>
                 </button>
             </div>
@@ -42,4 +42,19 @@
     <!-- Main Content -->
     <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
         <section class="mb-10 text-center">
-            <h2 class="text-2xl md:text-3xl font-semibold text-slate-
+            <h2 class="text-2xl md:text-3xl font-semibold text-slate-800 mb-2">가족과 함께 발맞춰 걸은 흔적들</h2>
+            <p class="text-gray-600 text-sm md:text-base">산길 따라, 들길 따라 함께 쌓아 올린 추억과 풍경을 기록하는 사진 일지입니다.</p>
+        </section>
+        <div id="journalGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-200 py-6 text-center text-xs text-gray-500">
+        <p>© 2026 우리의 길 & 들. All rights reserved.</p>
+    </footer>
+
+    <!-- Write Modal -->
+    <div id="writeModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-xl">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                <h3 class="text-lg
