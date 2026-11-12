@@ -22,6 +22,33 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 @media(max-width:1050px){.layout{grid-template-columns:190px minmax(0,1fr)}.photo-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.map-canvas{height:370px}}
 @media(max-width:720px){.app{padding:13px 12px 28px}.topbar{margin-bottom:15px}.brand h1{font-size:17px}.brand-mark{width:41px;height:41px}.soft-pill{display:none}.layout{display:block}.sidebar{position:static;display:flex;overflow:auto;gap:4px;padding:7px;margin-bottom:16px;border-radius:15px}.side-label,.side-note{display:none}.nav{white-space:nowrap;width:auto;margin:0;padding:10px 11px;font-size:11px;gap:6px}.nav .ico{font-size:14px;width:auto}.hello h2{font-size:22px}.hello p{font-size:11px}.primary{padding:10px 12px;font-size:11px}.stats{gap:8px}.stat{padding:12px;gap:8px;border-radius:15px}.stat-icon{width:35px;height:35px;font-size:16px}.stat strong{font-size:20px}.stat span{font-size:10px}.map-panel,.trip-panel,.side-panel{padding:13px;border-radius:17px}.map-canvas{height:330px}.map-foot{font-size:9px}.content-grid{gap:12px}.trip-grid{gap:9px}.trip-cover{height:115px}.trip-body{padding:10px}.trip-body h4{font-size:12px}.trip-meta{font-size:9px}.trip-snippet{font-size:10px}.photo-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.photo-image{height:135px}.toolbar h2{font-size:19px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.modal-backdrop{padding:8px}.modal{max-height:96vh}.modal-head,.modal-body{padding:15px}.modal-actions{padding:12px 15px}.section-head{align-items:flex-start}.map-controls{justify-content:flex-end}.select-small{padding:7px 8px}}
 @media(max-width:390px){.nav{font-size:10px;padding:9px}.trip-cover{height:98px}.photo-image{height:118px}.hello{align-items:center}.hello h2{font-size:20px}}
+
+/* cheerful scrapbook-style cover */
+.hero-cover{position:relative;isolation:isolate;display:flex;align-items:center;min-height:222px;overflow:hidden;margin:2px 0 19px;padding:27px 34px;border:1px solid rgba(255,255,255,.9);border-radius:27px;background:radial-gradient(circle at 12% 8%,rgba(255,255,255,.9) 0 2px,transparent 3px),radial-gradient(circle at 57% 20%,rgba(255,255,255,.72) 0 3px,transparent 4px),linear-gradient(112deg,#fff1d9 0%,#ffe8e8 46%,#e6f4ff 100%);box-shadow:0 15px 36px rgba(193,143,132,.13)}
+.hero-cover:before{content:"";position:absolute;z-index:-1;width:260px;height:260px;right:27%;top:-168px;border-radius:50%;background:rgba(255,255,255,.35)}
+.hero-cover:after{content:"";position:absolute;z-index:-1;width:190px;height:190px;left:42%;bottom:-145px;border-radius:50%;background:rgba(255,255,255,.32)}
+.hero-copy{position:relative;z-index:2;max-width:610px;padding-right:30%;}
+.hero-kicker{display:inline-flex;align-items:center;gap:8px;margin-bottom:10px;padding:6px 11px;border:1px solid rgba(255,255,255,.86);border-radius:999px;background:rgba(255,255,255,.62);color:#b27e76;font-size:9px;font-weight:900;letter-spacing:1.8px;box-shadow:0 3px 10px rgba(160,123,116,.07)}
+.hero-kicker span{color:#e9ad62;font-size:12px}
+.hero-cover h2{margin:0;color:#3b4960;font-size:30px;line-height:1.3;letter-spacing:-1.35px;font-weight:900}
+.hero-cover h2 em{color:#df8279;font-style:normal}
+.hero-cover p{margin:9px 0 16px;color:#7d8293;font-size:12px;letter-spacing:-.1px}
+.hero-cta{display:inline-flex;align-items:center;gap:12px;padding:10px 16px;border-radius:999px;background:linear-gradient(110deg,#f28f83,#eea0a0);box-shadow:0 7px 17px rgba(221,131,123,.25);font-size:12px}
+.hero-cta span{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.27);font-size:15px;line-height:1}
+.hero-art{position:absolute;right:13px;bottom:0;width:47%;height:100%;pointer-events:none}
+.hero-art svg{position:absolute;right:0;bottom:0;width:100%;height:auto;max-height:100%;overflow:visible}
+.hero-sticker{position:absolute;z-index:2;display:grid;place-items:center;filter:drop-shadow(0 4px 5px rgba(105,107,126,.13));}
+.sticker-sun{right:24%;top:12px;font-size:30px;transform:rotate(10deg)}
+.sticker-flower{right:6%;bottom:24px;font-size:26px;transform:rotate(-12deg)}
+.sticker-plane{left:12%;top:27%;font-size:23px;transform:rotate(-10deg)}
+.hero-art-note{position:absolute;right:4%;bottom:15px;padding:7px 10px;border:1px solid #fff;background:rgba(255,255,255,.78);border-radius:10px;color:#8a8998;font-family:Georgia,serif;font-size:9px;font-style:italic;letter-spacing:.2px;box-shadow:0 4px 12px rgba(84,113,119,.1);transform:rotate(-4deg)}
+.hero-art-note span{color:#ed9990;font-size:13px;margin-right:3px}
+.hero-sparkle{position:absolute;z-index:1;color:#e7b75f;text-shadow:0 2px 8px #fff;font-size:23px}
+.sparkle-one{right:48%;top:23px}.sparkle-two{right:8%;top:48%;color:#fff;font-size:30px}
+@media(max-width:900px){.hero-cover{min-height:210px;padding:25px 27px}.hero-copy{padding-right:32%}.hero-cover h2{font-size:26px}.hero-art{width:48%;right:0}.hero-art-note{font-size:8px}}
+@media(max-width:720px){.hero-cover{min-height:232px;padding:21px 19px 20px;border-radius:22px;margin:0 0 15px;align-items:flex-start}.hero-copy{padding-right:13%;max-width:100%}.hero-kicker{font-size:8px;letter-spacing:1.2px;margin-bottom:9px}.hero-cover h2{font-size:23px;line-height:1.32;max-width:390px}.hero-cover p{max-width:265px;font-size:10px;line-height:1.5;margin:8px 0 12px}.hero-cta{font-size:10px;padding:9px 13px}.hero-art{width:55%;height:115px;right:-1px;bottom:0;opacity:.94}.hero-art svg{width:100%;max-height:none}.sticker-sun{right:24%;top:2px;font-size:22px}.sticker-flower{right:3%;bottom:11px;font-size:20px}.sticker-plane{left:10%;top:5%;font-size:18px}.hero-art-note{right:5%;bottom:8px;font-size:7px;padding:5px 7px}.sparkle-one{right:44%;top:12px;font-size:17px}.sparkle-two{right:4%;top:39%;font-size:21px}}
+@media(max-width:390px){.hero-cover{min-height:224px;padding:18px 15px}.hero-cover h2{font-size:21px}.hero-copy{padding-right:4%}.hero-art{width:57%;height:105px}.hero-cover p{max-width:235px}}
+
 </style>
 </head>
 <body>
@@ -43,7 +70,41 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
     </aside>
     <main>
       <section id="view-home" class="view active">
-        <div class="hello"><div><h2>우리 가족, 어디까지 가봤을까? 🌷</h2><p>다녀온 장소를 지도에서 한눈에 확인해 보세요.</p></div><button class="primary" id="addTripTop">＋ 새 여행 기록</button></div>
+        <section class="hero-cover" aria-label="우리 가족 여행 앨범 표지">
+          <div class="hero-copy">
+            <div class="hero-kicker"><span>✦</span> OUR FAMILY TRAVEL DIARY <span>✦</span></div>
+            <h2>함께 떠나서 더 행복한<br><em>우리 가족의 여행 이야기</em></h2>
+            <p>반짝이는 순간을 모아, 우리만의 지도를 그려가요.</p>
+            <button class="primary hero-cta" id="addTripTop">새 여행 추억 담기 <span>＋</span></button>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <span class="hero-sticker sticker-sun">☀️</span>
+            <span class="hero-sticker sticker-flower">🌼</span>
+            <span class="hero-sticker sticker-plane">✈️</span>
+            <svg viewBox="0 0 460 230" role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="hillBack" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b9e3d2"/><stop offset="1" stop-color="#91cdb8"/></linearGradient>
+                <linearGradient id="hillFront" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a8d9c4"/><stop offset="1" stop-color="#78bda8"/></linearGradient>
+              </defs>
+              <path d="M72 65 C91 46 118 47 132 66 C148 49 177 58 181 79 C198 81 204 97 193 109 L76 109 C54 101 54 78 72 65Z" fill="#fff" opacity=".9"/>
+              <path d="M283 40 C297 25 322 29 329 47 C344 36 367 44 367 62 C384 66 389 84 376 94 L284 94 C265 85 267 54 283 40Z" fill="#fff" opacity=".82"/>
+              <circle cx="354" cy="48" r="27" fill="#ffd66f"/>
+              <g stroke="#f3bb55" stroke-width="4" stroke-linecap="round"><path d="M354 10v-8M354 86v-8M316 48h-8M400 48h-8M327 21l-6-6M387 81l-6-6M381 21l6-6M321 81l6-6"/></g>
+              <path d="M27 190 L115 107 L169 165 L229 91 L316 185Z" fill="#c6d9ea"/>
+              <path d="M91 132 L115 107 L137 132 L121 127 L114 135 L107 126Z" fill="#fff" opacity=".95"/>
+              <path d="M197 125 L229 91 L260 127 L240 119 L229 130 L218 118Z" fill="#fff" opacity=".95"/>
+              <path d="M0 194 C66 147 127 157 182 181 C245 209 302 157 460 167 L460 230 L0 230Z" fill="url(#hillBack)"/>
+              <path d="M0 213 C84 173 143 192 206 207 C282 226 355 171 460 190 L460 230 L0 230Z" fill="url(#hillFront)"/>
+              <path d="M58 213 C126 171 181 174 236 195 S344 214 400 166" fill="none" stroke="#fff7dc" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 11" opacity=".95"/>
+              <circle cx="59" cy="213" r="7" fill="#f28f83" stroke="#fff" stroke-width="3"/>
+              <circle cx="400" cy="166" r="7" fill="#f28f83" stroke="#fff" stroke-width="3"/>
+              <g transform="translate(302 153)"><path d="M0 0 C-16 -23 1 -40 16 -32 C31 -23 25 -5 0 0Z" fill="#f28f83" stroke="#fff" stroke-width="3"/><circle cx="9" cy="-19" r="5" fill="#fff4e9"/><path d="M0 0 L-4 9 L7 4Z" fill="#df7a70"/></g>
+              <g fill="#fff" opacity=".9"><path d="M212 35l4 9 10 4-10 4-4 9-4-9-10-4 10-4z"/><path d="M255 68l3 6 7 3-7 3-3 6-3-6-7-3 7-3z"/><circle cx="74" cy="133" r="3"/><circle cx="426" cy="111" r="3"/></g>
+            </svg>
+            <div class="hero-art-note"><span>♡</span> little moments, big memories</div>
+          </div>
+          <div class="hero-sparkle sparkle-one">✦</div><div class="hero-sparkle sparkle-two">✧</div>
+        </section>
         <div class="stats">
           <div class="stat"><div class="stat-icon">🧳</div><div><strong id="statTrips">0</strong><span>여행 기록</span></div></div>
           <div class="stat"><div class="stat-icon">📍</div><div><strong id="statPlaces">0</strong><span>방문 장소</span></div></div>
