@@ -1,60 +1,135 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>우리의 길 & 들 - 가족 여행 & 등산 일지</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <style>
-        body { background-color: #f7f4ef; color: #2f3e46; font-family: 'Noto Sans KR', sans-serif; }
-        .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#fffaf2" />
+  <title>우리 가족 여행 앨범</title>
+  <style>
+    :root{
+      --ink:#25344b;--muted:#7b8796;--cream:#fffaf2;--paper:#ffffff;--line:#f0e9dc;
+      --coral:#ff8e7d;--coral-dark:#e96f63;--sky:#8ecce5;--mint:#a9d9c1;--yellow:#ffd66e;
+      --lav:#c9b8e9;--shadow:0 12px 34px rgba(63,74,91,.08);--radius:23px;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--cream);color:var(--ink);font-family:Pretendard,"Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+    button,input,textarea,select{font:inherit} button{cursor:pointer}
+    .shell{max-width:1180px;margin:0 auto;padding:0 28px 70px}
+    header{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(221,211,194,.55)}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:900;letter-spacing:-.7px;font-size:19px}.brand-mark{width:39px;height:39px;border-radius:14px;background:linear-gradient(145deg,#ffb49f,#ff8e7d);display:grid;place-items:center;box-shadow:0 6px 14px #ffb9a277;font-size:21px}
+    nav{display:flex;gap:27px;align-items:center;color:#7f8996;font-weight:700;font-size:13px}nav a{color:inherit;text-decoration:none}nav a.active{color:var(--ink)}
+    .header-right{display:flex;align-items:center;gap:10px}.family-chip{background:#fff;border:1px solid var(--line);border-radius:30px;padding:8px 13px;font-size:12px;color:#687487;font-weight:700}
+    .hero{margin:31px 0 25px;border-radius:30px;min-height:245px;overflow:hidden;position:relative;padding:36px 42px;background:linear-gradient(110deg,#ffe5d9 0%,#fff0d0 48%,#dff3f5 100%);box-shadow:var(--shadow)}
+    .hero:before{content:"";position:absolute;width:240px;height:240px;border-radius:50%;right:105px;top:50px;background:rgba(255,255,255,.28)}
+    .hero:after{content:"✦";position:absolute;right:48px;top:35px;color:#fff;font-size:35px;text-shadow:0 5px 12px #e9b980}
+    .hero-copy{position:relative;z-index:2;max-width:600px}.eyebrow{display:inline-flex;align-items:center;gap:7px;border-radius:30px;background:#ffffffaa;padding:7px 12px;font-size:11px;font-weight:900;color:#bd7769;letter-spacing:.5px}
+    h1{font-size:33px;line-height:1.32;letter-spacing:-1.5px;margin:15px 0 9px;font-weight:900}h1 span{color:#e87869}.hero p{color:#69798b;font-size:14px;margin:0;line-height:1.7}
+    .hero-art{position:absolute;right:60px;bottom:-9px;width:350px;height:210px;display:flex;align-items:end;justify-content:center;gap:8px;z-index:1}.sun{position:absolute;right:96px;top:5px;width:76px;height:76px;border-radius:50%;background:#ffda78;opacity:.9}.cloud{position:absolute;right:235px;top:57px;color:#fff;font-size:43px}.mountain{position:absolute;bottom:0;border-radius:60% 60% 0 0;transform:rotate(0deg)}.m1{width:190px;height:135px;right:115px;background:#8fcbb7;clip-path:polygon(0 100%,35% 13%,52% 46%,67% 0,100% 100%)}.m2{width:220px;height:105px;right:0;background:#79b8b4;clip-path:polygon(0 100%,38% 0,60% 49%,77% 19%,100% 100%)}.tent{position:absolute;bottom:0;right:84px;font-size:62px;filter:drop-shadow(0 5px 3px #467f7a33)}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin:0 0 34px}.stat{background:#fff;border:1px solid var(--line);border-radius:19px;padding:17px 20px;display:flex;align-items:center;gap:13px;box-shadow:0 5px 18px #4d52600a}.stat-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:20px}.stat:nth-child(1) .stat-icon{background:#fff0e9}.stat:nth-child(2) .stat-icon{background:#eaf6fb}.stat:nth-child(3) .stat-icon{background:#eef8ef}.stat-label{font-size:11px;color:#8a94a0;font-weight:800;margin-bottom:4px}.stat-value{font-size:20px;font-weight:900;letter-spacing:-.5px}.stat-value small{font-size:12px;color:#8a94a0;margin-left:3px}
+    .section-top{display:flex;align-items:end;justify-content:space-between;gap:15px;margin-bottom:17px}.section-kicker{font-size:10px;letter-spacing:1.5px;color:#d58a79;font-weight:900}.section-title{font-size:23px;font-weight:900;letter-spacing:-.8px;margin:5px 0 0}.section-sub{font-size:12px;color:#8b95a1;margin-top:5px}
+    .primary{border:0;border-radius:14px;background:var(--coral);color:white;padding:13px 19px;font-weight:900;font-size:13px;box-shadow:0 7px 15px #ff9b8870;transition:.18s}.primary:hover{background:var(--coral-dark);transform:translateY(-1px)}.primary .plus{font-size:17px;margin-right:5px;vertical-align:-1px}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 18px;flex-wrap:wrap}.filters{display:flex;gap:7px;flex-wrap:wrap}.filter{border:1px solid #eee5d8;background:#fff;border-radius:30px;color:#86909c;padding:8px 14px;font-size:11px;font-weight:800}.filter.active{background:var(--ink);border-color:var(--ink);color:#fff}.search{border:1px solid #eee5d8;background:#fff;border-radius:30px;padding:10px 15px;min-width:220px;color:var(--ink);font-size:12px;outline:none}.search:focus{border-color:#f4aa9d}
+    .album-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.trip-card{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 7px 24px #4d52600a;transition:.2s;cursor:pointer}.trip-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+    .cover{height:190px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}.cover:before,.cover:after{content:"";position:absolute;border-radius:50%;background:#ffffff35}.cover:before{width:230px;height:230px;right:-28px;top:52px}.cover:after{width:110px;height:110px;left:25px;top:-50px}.cover .cover-emoji{font-size:77px;position:relative;z-index:1;filter:drop-shadow(0 9px 7px #43505b2a)}.cover .cover-label{position:absolute;left:18px;top:16px;background:#ffffffcf;border-radius:20px;padding:6px 10px;font-size:10px;font-weight:900;color:#637184;z-index:2}.cover .cover-date{position:absolute;right:17px;bottom:15px;color:#fff;font-weight:900;text-shadow:0 2px 8px #39475a70;font-size:12px;z-index:2}.cover.sea{background:linear-gradient(140deg,#a9dfed,#5cabc8)}.cover.city{background:linear-gradient(140deg,#f8d7b7,#e9a37d)}.cover.forest{background:linear-gradient(140deg,#c9e2bf,#79b795)}.cover.sunset{background:linear-gradient(140deg,#f5c3ac,#e99c91)}.cover.lavender{background:linear-gradient(140deg,#e2d7f4,#a9b9de)}
+    .card-body{padding:17px 19px 18px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.trip-title{font-size:17px;font-weight:900;letter-spacing:-.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.trip-type{font-size:10px;font-weight:900;padding:6px 9px;border-radius:20px;background:#fff2e9;color:#d68b6f;white-space:nowrap}.trip-meta{display:flex;gap:13px;flex-wrap:wrap;margin:11px 0 14px;color:#8a95a2;font-size:11px;font-weight:700}.trip-meta span{display:flex;align-items:center;gap:4px}.card-bottom{border-top:1px solid #f3eee6;padding-top:12px;display:flex;justify-content:space-between;color:#87919d;font-size:11px}.cost{font-weight:900;color:#4c5a6c}.sample-note{text-align:center;color:#a1a8b0;font-size:10px;margin:22px 0 0}
+    .empty{grid-column:1/-1;background:#fff;border:1px dashed #eadfce;border-radius:22px;padding:52px 20px;text-align:center;color:#8993a0}.empty .big{font-size:45px}.empty strong{display:block;color:#536176;margin:10px 0 6px;font-size:16px}.empty p{font-size:12px;margin:0 0 18px}
+    footer{margin-top:55px;border-top:1px solid var(--line);padding-top:19px;display:flex;justify-content:space-between;gap:12px;color:#a1a8b0;font-size:10px}
+    .notice{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:20;background:#28384e;color:#fff;padding:11px 17px;border-radius:30px;font-size:11px;box-shadow:0 8px 20px #1d2c4050;max-width:90%;text-align:center}
+    .modal-backdrop{position:fixed;inset:0;background:#26344770;display:none;align-items:center;justify-content:center;padding:18px;z-index:50}.modal-backdrop.open{display:flex}.modal{width:min(620px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:25px;box-shadow:0 20px 70px #1b2c4040}.modal-head{padding:22px 25px 17px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modal-head h2{font-size:19px;margin:0;letter-spacing:-.6px}.close{width:32px;height:32px;border:0;border-radius:50%;background:#f5f3ef;color:#738092;font-size:19px}.modal-content{padding:22px 25px 25px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:flex;flex-direction:column;gap:7px}.field.full{grid-column:1/-1}.field label{font-size:11px;font-weight:900;color:#687689}.field input,.field select,.field textarea{width:100%;border:1px solid #eae5dd;border-radius:11px;padding:11px 12px;font-size:12px;color:var(--ink);outline:none;background:#fff}.field input:focus,.field select:focus,.field textarea:focus{border-color:#f2a99c}.field textarea{min-height:85px;resize:vertical}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}.secondary{border:1px solid #e9e4dc;background:#fff;color:#788392;border-radius:12px;padding:11px 16px;font-weight:800;font-size:12px}.detail-cover{height:210px;display:grid;place-items:center;font-size:82px}.detail-copy{padding:22px 25px 25px}.detail-copy h2{margin:0 0 9px;font-size:23px}.detail-meta{font-size:12px;color:#8993a0;margin-bottom:17px}.detail-section{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}.detail-section h3{font-size:11px;color:#c08371;margin:0 0 7px}.detail-section p{font-size:13px;line-height:1.7;color:#657286;margin:0;white-space:pre-wrap}.detail-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+    @media(max-width:760px){.shell{padding:0 16px 45px}header{height:68px}.brand{font-size:16px}.brand-mark{width:35px;height:35px}nav{display:none}.family-chip{font-size:10px;padding:7px 10px}.hero{margin:19px 0 17px;padding:25px 23px;min-height:255px}.hero-art{right:-30px;bottom:-5px;opacity:.72;transform:scale(.82);transform-origin:bottom right}.hero-copy{max-width:75%}h1{font-size:26px}.hero p{font-size:12px}.stats{gap:8px;margin-bottom:27px}.stat{padding:12px 10px;gap:8px;border-radius:15px}.stat-icon{width:32px;height:32px;font-size:16px;border-radius:10px}.stat-label{font-size:9px}.stat-value{font-size:16px}.stat-value small{font-size:9px}.section-title{font-size:20px}.section-sub{font-size:10px}.primary{padding:11px 13px;font-size:11px}.toolbar{align-items:stretch}.filters{width:100%}.filter{padding:7px 11px;font-size:10px}.search{width:100%;min-width:0}.album-grid{grid-template-columns:1fr;gap:14px}.cover{height:175px}.card-body{padding:15px 16px}.trip-title{font-size:16px}footer{font-size:9px;flex-direction:column}.modal-content{padding:18px}.modal-head{padding:18px}.form-grid{grid-template-columns:1fr 1fr;gap:11px}.field input,.field select,.field textarea{padding:10px;font-size:11px}}
+    @media(max-width:390px){.hero-copy{max-width:85%}.hero-art{opacity:.42}.stat{display:block}.stat-icon{margin-bottom:7px}.stat-value{font-size:15px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+  </style>
 </head>
-<body class="min-h-screen flex flex-col">
-
-    <!-- Navigation Header -->
-    <header class="sticky top-0 z-40 glass-panel border-b border-gray-200 shadow-sm">
-        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <span class="text-2xl text-emerald-700"><i class="fa-solid fa-mountain-sun"></i></span>
-                <h1 class="font-bold text-xl text-slate-800">우리의 길 & 들</h1>
-            </div>
-            <div class="flex items-center space-x-2">
-                <button id="openWriteBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-1 cursor-pointer">
-                    <i class="fa-solid fa-pen"></i>
-                    <span class="hidden sm:inline">새 기록 추가</span>
-                </button>
-                <button id="openSettingsBtn" class="p-2 text-slate-700 hover:bg-gray-100 rounded-lg transition cursor-pointer" title="설정">
-                    <i class="fa-solid fa-gear text-lg"></i>
-                </button>
-            </div>
-        </div>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><div class="brand-mark">✈</div><span>우리 가족 여행 앨범</span></div>
+      <nav><a class="active" href="#album">여행 앨범</a><a href="#stats">여행 기록</a><a href="#footer">가족 추억</a></nav>
+      <div class="header-right"><span class="family-chip">♡ OUR FAMILY JOURNAL</span></div>
     </header>
 
-    <!-- Main Content -->
-    <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
-        <section class="mb-10 text-center">
-            <h2 class="text-2xl md:text-3xl font-semibold text-slate-800 mb-2">가족과 함께 발맞춰 걸은 흔적들</h2>
-            <p class="text-gray-600 text-sm md:text-base">산길 따라, 들길 따라 함께 쌓아 올린 추억과 풍경을 기록하는 사진 일지입니다.</p>
-        </section>
-        <div id="journalGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-    </main>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">✦ LITTLE MOMENTS, BIG MEMORIES</div>
+        <h1>함께 떠난 모든 순간,<br><span>우리 가족의 행복한 기록</span></h1>
+        <p>사진 한 장, 짧은 메모 하나까지 소중하게.<br>우리 가족이 함께한 여행을 차곡차곡 모아보세요.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true"><div class="sun"></div><div class="cloud">☁</div><div class="mountain m1"></div><div class="mountain m2"></div><div class="tent">🏕️</div></div>
+    </section>
 
-    <!-- Footer -->
-    <footer class="border-t border-gray-200 py-6 text-center text-xs text-gray-500">
-        <p>© 2026 우리의 길 & 들. All rights reserved.</p>
-    </footer>
+    <section class="stats" id="stats">
+      <div class="stat"><div class="stat-icon">🧳</div><div><div class="stat-label">함께한 여행</div><div class="stat-value" id="statTrips">3<small>회</small></div></div></div>
+      <div class="stat"><div class="stat-icon">📍</div><div><div class="stat-label">다녀온 지역</div><div class="stat-value" id="statPlaces">3<small>곳</small></div></div></div>
+      <div class="stat"><div class="stat-icon">💛</div><div><div class="stat-label">여행 경비 합계</div><div class="stat-value" id="statCost">₩ 0</div></div></div>
+    </section>
 
-    <!-- Write Modal -->
-    <div id="writeModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-xl">
-            <div class="flex justify-between items-center mb-4 pb-2 border-b">
-                <h3 class="text-lg
+    <section id="album">
+      <div class="section-top">
+        <div><div class="section-kicker">FAMILY TRAVEL ARCHIVE</div><div class="section-title">우리의 여행 이야기</div><div class="section-sub">가족과 함께한 소중한 순간들을 모아보세요.</div></div>
+        <button class="primary" id="addBtn"><span class="plus">＋</span>여행 기록 추가</button>
+      </div>
+      <div class="toolbar"><div class="filters" id="filters"><button class="filter active" data-year="all">전체 보기</button></div><input class="search" id="search" type="search" placeholder="🔎 여행지나 제목으로 검색" /></div>
+      <div class="album-grid" id="albumGrid"></div>
+      <div class="sample-note" id="sampleNote">화면 구성을 보여드리기 위한 예시 기록입니다. 실제 가족 여행 기록으로 바꿔보세요.</div>
+    </section>
+    <footer id="footer"><span>♡ OUR FAMILY, OUR STORIES</span><span>가족의 추억을 오래오래 간직하는 작은 여행 앨범</span></footer>
+  </div>
+  <div class="notice" id="notice">현재는 화면 확인용 초안입니다 · 입력한 내용은 이 브라우저에만 저장됩니다.</div>
+
+  <div class="modal-backdrop" id="formBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+      <div class="modal-head"><h2 id="formTitle">새로운 여행 기록</h2><button class="close" data-close="formBackdrop" aria-label="닫기">×</button></div>
+      <div class="modal-content">
+        <form id="tripForm">
+          <div class="form-grid">
+            <div class="field full"><label for="title">여행 제목 *</label><input id="title" required maxlength="60" placeholder="예: 강릉 바다 가족여행" /></div>
+            <div class="field"><label for="location">여행지 *</label><input id="location" required maxlength="60" placeholder="예: 강원도 강릉" /></div>
+            <div class="field"><label for="date">여행 시작일 *</label><input id="date" type="date" required /></div>
+            <div class="field"><label for="kind">여행 구분</label><select id="kind"><option>국내여행</option><option>해외여행</option><option>당일 나들이</option><option>캠핑</option></select></div>
+            <div class="field"><label for="nights">일정</label><select id="nights"><option value="당일">당일</option><option value="1박 2일">1박 2일</option><option value="2박 3일">2박 3일</option><option value="3박 4일">3박 4일</option><option value="기타">기타</option></select></div>
+            <div class="field"><label for="cost">총 여행 경비 (원)</label><input id="cost" type="number" min="0" step="1000" placeholder="예: 250000" /></div>
+            <div class="field"><label for="stay">숙소</label><input id="stay" maxlength="80" placeholder="숙소 이름 또는 메모" /></div>
+            <div class="field full"><label for="memo">여행 메모</label><textarea id="memo" maxlength="1500" placeholder="기억하고 싶은 순간, 아이들의 반응, 맛있었던 음식 등을 적어보세요."></textarea></div>
+          </div>
+          <div class="form-actions"><button type="button" class="secondary" data-close="formBackdrop">취소</button><button class="primary" type="submit">기록 저장하기</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="detailBackdrop"><div class="modal" role="dialog" aria-modal="true"><div id="detailContent"></div></div></div>
+
+  <script>
+    const STORAGE_KEY='familyTravelJournalDraftV1';
+    const sampleTrips=[
+      {id:'sample-1',title:'강릉 바다 가족여행',location:'강원도 강릉',date:'2026-08-08',kind:'국내여행',nights:'1박 2일',cost:380000,stay:'강릉 바닷가 숙소',memo:'시원한 바닷바람을 맞으며 함께 걸었던 여름날. 맛있는 음식도 먹고 가족사진도 많이 남겼어요.',theme:'sea',emoji:'🌊',sample:true},
+      {id:'sample-2',title:'경주 역사 여행',location:'경상북도 경주',date:'2026-05-16',kind:'국내여행',nights:'1박 2일',cost:420000,stay:'경주 시내 호텔',memo:'불국사와 첨성대를 둘러보고 야경까지 즐겼던 알찬 여행. 아이들과 새로운 이야기를 많이 나눴어요.',theme:'city',emoji:'🏛️',sample:true},
+      {id:'sample-3',title:'가을 숲속 나들이',location:'경기도 가평',date:'2025-10-11',kind:'당일 나들이',nights:'당일',cost:120000,stay:'',memo:'울긋불긋 물든 나무 사이를 천천히 산책했어요. 도시락을 먹으며 보낸 여유로운 하루.',theme:'forest',emoji:'🍂',sample:true}
+    ];
+    let trips=loadTrips(); let editingId=null; let currentDetail=null;
+    function loadTrips(){try{const raw=localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):sampleTrips.map(x=>({...x}));}catch(e){return sampleTrips.map(x=>({...x}));}}
+    function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(trips));return true;}catch(e){showNotice('저장 공간이 부족합니다. 사진을 제외하고 다시 시도해 주세요.');return false;}}
+    function money(n){return '₩ '+Number(n||0).toLocaleString('ko-KR');}
+    function dateText(d){if(!d)return '';const [y,m,day]=d.split('-');return `${y}.${m}.${day}`;}
+    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function years(){return [...new Set(trips.map(t=>(t.date||'').slice(0,4)).filter(Boolean))].sort((a,b)=>b-a);}
+    let activeYear='all';
+    function renderFilters(){const ys=years();document.getElementById('filters').innerHTML=`<button class="filter ${activeYear==='all'?'active':''}" data-year="all">전체 보기</button>`+ys.map(y=>`<button class="filter ${activeYear===y?'active':''}" data-year="${y}">${y}년</button>`).join('');document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{activeYear=b.dataset.year;render();}));}
+    function render(){renderFilters();const q=document.getElementById('search').value.trim().toLowerCase();const shown=trips.filter(t=>(activeYear==='all'||(t.date||'').startsWith(activeYear))&&(!q||`${t.title} ${t.location} ${t.memo||''}`.toLowerCase().includes(q))).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      const grid=document.getElementById('albumGrid');
+      if(!shown.length){grid.innerHTML='<div class="empty"><div class="big">🧭</div><strong>아직 이 조건에 맞는 여행이 없어요.</strong><p>새로운 여행 기록을 추가해 보세요.</p><button class="primary" onclick="openForm()">＋ 여행 기록 추가</button></div>';}else{grid.innerHTML=shown.map(t=>`<article class="trip-card" data-id="${esc(t.id)}"><div class="cover ${esc(t.theme||'sunset')}"><span class="cover-label">${esc(t.kind||'여행')}</span><span class="cover-emoji">${esc(t.emoji||'✈️')}</span><span class="cover-date">${dateText(t.date)} · ${esc(t.nights||'')}</span></div><div class="card-body"><div class="card-head"><div class="trip-title">${esc(t.title)}</div><span class="trip-type">${esc(t.kind||'여행')}</span></div><div class="trip-meta"><span>📍 ${esc(t.location)}</span><span>🗓 ${esc(t.nights||'')}</span></div><div class="card-bottom"><span>${t.stay?'🏨 '+esc(t.stay):'♡ 가족과 함께한 시간'}</span><span class="cost">${money(t.cost)}</span></div></div></article>`).join('');grid.querySelectorAll('.trip-card').forEach(c=>c.addEventListener('click',()=>openDetail(c.dataset.id)));}
+      const total=trips.reduce((s,t)=>s+Number(t.cost||0),0);document.getElementById('statTrips').innerHTML=`${trips.length}<small>회</small>`;document.getElementById('statPlaces').innerHTML=`${new Set(trips.map(t=>t.location).filter(Boolean)).size}<small>곳</small>`;document.getElementById('statCost').textContent=money(total);document.getElementById('sampleNote').style.display=trips.some(t=>t.sample)?'block':'none';
+    }
+    function showNotice(msg){const n=document.getElementById('notice');n.textContent=msg;n.style.display='block';clearTimeout(window.noticeTimer);window.noticeTimer=setTimeout(()=>n.style.display='none',4300);}
+    function openForm(id=null){editingId=id;const t=id?trips.find(x=>x.id===id):null;document.getElementById('formTitle').textContent=t?'여행 기록 수정':'새로운 여행 기록';['title','location','date','kind','nights','cost','stay','memo'].forEach(k=>{const el=document.getElementById(k);el.value=t?(t[k]??''):'';});if(!t){document.getElementById('kind').value='국내여행';document.getElementById('nights').value='당일';}document.getElementById('formBackdrop').classList.add('open');}
+    function closeModal(id){document.getElementById(id).classList.remove('open');}
+    document.getElementById('addBtn').addEventListener('click',()=>openForm());
+    document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));
+    document.querySelectorAll('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)b.classList.remove('open');}));
+    document.getElementById('search').addEventListener('input',render);
+    document.getElementById('tripForm').addEventListener('submit',e=>{e.preventDefault();const data={title:document.getElementById('title').value.trim(),location:document.getElementById('location').value.trim(),date:document.getElementById('date').value,kind:document.getElementById('kind').value,nights:document.getElementById('nights').value,cost:Number(document.getElementById('cost').value||0),stay:document.getElementById('stay').value.trim(),memo:document.getElementById('memo').value.trim(),theme:['sea','city','forest','sunset','lavender'][Math.floor(Math.random()*5)],emoji:'✈️',sample:false};if(editingId){const i=trips.findIndex(t=>t.id===editingId);trips[i]={...trips[i],...data,sample:false};}else{trips.push({id:'trip-'+Date.now(),...data});}if(persist()){closeModal('formBackdrop');render();showNotice('여행 기록을 이 브라우저에 저장했어요.');}});
+    function openDetail(id){const t=trips.find(x=>x.id===id);if(!t)return;currentDetail=id;document.getElementById('detailContent').innerHTML=`<div class="detail-cover cover ${esc(t.theme||'sunset')}">${esc(t.emoji||'✈️')}</div><div class="detail-copy"><h2>${esc(t.title)}</h2><div class="detail-meta">📍 ${esc(t.location)}　·　${dateText(t.date)}　·　${esc(t.nights||'')}</div><div class="detail-section"><h3>여행 정보</h3><p>구분: ${esc(t.kind||'-')}\n숙소: ${esc(t.stay||'미입력')}\n총 경비: ${money(t.cost)}</p></div><div class="detail-section"><h3>우리 가족의 메모</h3><p>${esc(t.memo||'아직 메모가 없습니다.')}</p></div><div class="detail-actions"><button class="secondary" id="deleteTrip">삭제</button><button class="primary" id="editTrip">수정하기</button></div></div>`;document.getElementById('detailBackdrop').classList.add('open');document.getElementById('editTrip').addEventListener('click',()=>{closeModal('detailBackdrop');openForm(id);});document.getElementById('deleteTrip').addEventListener('click',()=>{if(confirm('이 여행 기록을 삭제할까요?')){trips=trips.filter(x=>x.id!==id);persist();closeModal('detailBackdrop');render();showNotice('여행 기록을 삭제했어요.');}});}
+    document.getElementById('detailBackdrop').addEventListener('click',e=>{if(e.target.id==='detailBackdrop')closeModal('detailBackdrop');});
+    render();setTimeout(()=>{const n=document.getElementById('notice');if(n)n.style.display='none';},6500);
+  </script>
+</body>
+</html>
