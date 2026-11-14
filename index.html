@@ -176,6 +176,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 <!-- photo lightbox -->
 <div class="lightbox" id="lightbox"><div class="lightbox-inner"><div class="lightbox-title" id="lightboxTitle"></div><img id="lightboxImage" alt="여행 사진 크게 보기" /><div class="lightbox-controls"><button class="secondary" id="downloadOriginal">원본 다운로드 ⬇</button><button class="secondary" id="closeLightbox">닫기</button></div></div></div>
 <div class="toast" id="toast"></div>
+<script src="./supabase-auth.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 (() => {
@@ -373,7 +374,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
     await loadBlobURLs();initMap();renderAll();
     if(!window.L){$('mapEmpty').innerHTML='<div class="big">🗺️</div><b>지도를 불러오지 못했어요.</b><span>인터넷 연결을 확인한 뒤 새로고침해 주세요.</span>';}
   }
-  init();
+window.__familyAuthReady.then(init);
 })();
 </script>
 </body>
