@@ -438,6 +438,8 @@
   let expenseSnapshot = { journals: [], expenses: [] };
   let expenseActiveTripId = null;
   let expenseRefreshTimer = null;
+  let expenseCoverRenderToken = 0;
+  const expenseCoverObjectURLs = new Set();
 
   const expenseEscape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -505,7 +507,7 @@
 
   function expenseYearOf(row, journalById) {
     const journal = journalById.get(String(row.journal_id));
-    return String(row.expense_date || journal?.visit_date || '').slice(0, 4);
+    return String(journal?.visit_date || row.expense_date || '').slice(0, 4);
   }
 
   function expenseCategoryEmoji(category) {
@@ -570,7 +572,10 @@
       .expense-dash-cat-value{font-size:10px;color:#657487;font-weight:800;white-space:nowrap;text-align:right}
       .expense-dash-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
       .expense-dash-trip{min-width:0;border:1px solid #eee7dc;border-radius:17px;background:linear-gradient(150deg,#fff 0%,#fffdf9 100%);overflow:hidden}
-      .expense-dash-trip-head{padding:15px 16px 12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      .expense-dash-trip-head{padding:15px 16px 12px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+      .expense-dash-trip-cover{width:76px;height:76px;flex:0 0 76px;overflow:hidden;border-radius:13px;background:linear-gradient(135deg,#fff1da,#e9f5fb);display:grid;place-items:center;color:#b7a88f;font-size:25px}
+      .expense-dash-trip-cover img{width:100%;height:100%;object-fit:cover;display:block}
+      .expense-dash-trip-title{flex:1;min-width:0}
       .expense-dash-trip h4{margin:0 0 5px;font-size:14px;color:#344258;line-height:1.35}
       .expense-dash-trip-meta{font-size:10px;color:#8994a3;line-height:1.55}
       .expense-dash-trip-totals{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
@@ -594,23 +599,30 @@
       .expense-dash-money{display:inline-flex;align-items:baseline;gap:5px;padding:7px 10px;border:1px solid #e8edf1;border-radius:11px;background:#f8fbfd;font-size:13px;font-weight:900;color:#3e7189;white-space:nowrap}
       .expense-dash-money small{font-size:8px;color:#92a0ad;font-weight:800}
       .expense-dash-money.is-prominent{font-size:15px;padding:9px 12px}
-      #familyExpenseHomePanel .expense-home-total{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
-      #familyExpenseHomePanel .expense-home-trip{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 0;border-top:1px solid #f2eee8}
+      #familyExpenseHomePanel .expense-home-trip{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:10px 0;border-top:1px solid #f2eee8}
       #familyExpenseHomePanel .expense-home-trip b{display:block;font-size:11px;color:#536176}
       #familyExpenseHomePanel .expense-home-trip small{display:block;margin-top:3px;color:#98a2ae;font-size:9px}
-      #familyExpenseHomePanel .expense-home-trip strong{font-size:11px;color:#3f7891;text-align:right}
+      #familyExpenseHomePanel .expense-home-trip strong{font-size:11px;color:#3f7891;text-align:right;white-space:nowrap}
+      .expense-dash-stats{margin:8px 0 18px;border:1px solid #eee7dc;border-radius:16px;background:#fff;overflow:hidden}
+      .expense-dash-stats>summary{cursor:pointer;list-style:none;padding:14px 16px;color:#738094;font-size:11px;font-weight:900;background:linear-gradient(110deg,#fffaf3,#f7fbfd)}
+      .expense-dash-stats>summary::-webkit-details-marker{display:none}
+      .expense-dash-stats>summary:after{content:'통계 열기 ＋';float:right;color:#9aa4b0;font-size:10px}
+      .expense-dash-stats[open]>summary:after{content:'접기 −'}
+      .expense-dash-stats-body{padding:0 15px 15px}
+      .expense-dash-stats-body .expense-dash-section{margin:14px 0 0;box-shadow:none}
+      .expense-dash-filter-note{margin-left:auto;color:#9aa3ad;font-size:10px}
       #familyExpenseHomePanel .expense-home-action{width:100%;margin-top:9px;padding:10px 12px;border-radius:11px;background:#eff7fa;color:#4b7f96;font-size:10px;font-weight:900}
       #tripDetailExpensePanel .expense-detail-category{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0 12px}
       #tripDetailExpensePanel .expense-detail-category span{padding:6px 9px;border-radius:10px;background:#f5f8fa;color:#647487;font-size:10px;font-weight:800}
       @media(max-width:900px){.expense-dash-cards{grid-template-columns:1fr}}
-      @media(max-width:720px){.expense-dash-intro h2{font-size:21px}.expense-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.expense-dash-kpi strong{font-size:17px}.expense-dash-section{padding:13px}.expense-dash-cat-row{grid-template-columns:88px minmax(45px,1fr) auto;gap:7px}.expense-dash-cat-name{font-size:10px}.expense-dash-cat-value{font-size:9px}.expense-dash-trip-head{padding:13px}.expense-dash-trip-cats{padding:0 13px 10px}}
+      @media(max-width:720px){.expense-dash-intro h2{font-size:21px}.expense-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.expense-dash-kpi strong{font-size:17px}.expense-dash-section{padding:13px}.expense-dash-cat-row{grid-template-columns:88px minmax(45px,1fr) auto;gap:7px}.expense-dash-cat-name{font-size:10px}.expense-dash-cat-value{font-size:9px}.expense-dash-trip-head{padding:13px}.expense-dash-trip-cover{width:64px;height:64px;flex-basis:64px}.expense-dash-trip-cats{padding:0 13px 10px}.expense-dash-filter-note{margin-left:0;width:100%}}
     `;
     document.head.appendChild(style);
   }
 
   async function loadExpenseSnapshot() {
     const [journals, expenses] = await Promise.all([
-      expenseApi('journals?select=id,client_id,title,visit_date,location,trip_type&order=visit_date.desc'),
+      expenseApi('journals?select=id,client_id,title,visit_date,location,trip_type,cover_photo_id&order=visit_date.desc'),
       expenseApi('journal_expenses?select=id,journal_id,expense_date,category,description,amount,currency,payer,memo,created_at&order=expense_date.desc')
     ]);
     expenseSnapshot = {
@@ -628,17 +640,29 @@
       view.innerHTML = `
         <div id="ryusExpenseDashboard">
           <div class="expense-dash-intro">
-            <div><h2>우리 가족 여행 경비 💰</h2><p>여행별로 얼마를 사용했는지 한눈에 보고, 세부 지출도 펼쳐볼 수 있어요.</p></div>
+            <div><h2>여행별 경비 🧳</h2><p>각 여행에서 사용한 비용을 따로 모아봅니다. 전체 합계는 필요할 때 통계에서 확인할 수 있어요.</p></div>
             <button type="button" class="secondary" id="expenseDashboardRefreshNew">새로고침 ↻</button>
           </div>
           <div class="expense-dash-filter">
-            <label for="expenseYearFilter">조회 기간</label><select id="expenseYearFilter"><option value="all">전체 기간</option></select>
-            <label for="expenseCurrencyFilter">항목별 통화</label><select id="expenseCurrencyFilter"><option value="all">전체 통화</option></select>
+            <label for="expenseYearFilter">여행 연도</label><select id="expenseYearFilter"><option value="all">전체 연도</option></select>
+            <span class="expense-dash-filter-note">여행 날짜 기준으로 정렬됩니다.</span>
           </div>
-          <div id="expenseDashboardTotals" class="expense-dash-total-grid"></div>
-          <div id="expenseDashboardMeta" class="expense-dash-kpis"></div>
-          <section class="expense-dash-section"><div class="expense-dash-section-head"><div><h3>📊 지출 항목별 비중</h3><p>선택한 연도와 통화 기준으로 계산합니다.</p></div></div><div id="expenseCategoryBreakdown" class="expense-dash-category"></div></section>
-          <section class="expense-dash-section"><div class="expense-dash-section-head"><div><h3>🧳 여행별 경비</h3><p>여행 카드를 펼치면 세부 지출 내역을 확인할 수 있습니다.</p></div><span class="soft-pill" id="expenseTripCountLabel">0개 여행</span></div><div id="expenseDashboardList" class="expense-dash-cards"></div></section>
+          <section class="expense-dash-section">
+            <div class="expense-dash-section-head"><div><h3>🌷 우리 가족 여행 기록</h3><p>카드를 펼치면 날짜별 지출 내역과 결제 정보를 볼 수 있습니다.</p></div><span class="soft-pill" id="expenseTripCountLabel">0개 여행</span></div>
+            <div id="expenseDashboardList" class="expense-dash-cards"><div class="expense-dash-empty">경비를 불러오는 중입니다.</div></div>
+          </section>
+          <details class="expense-dash-stats">
+            <summary>📊 전체 경비 통계 보기</summary>
+            <div class="expense-dash-stats-body">
+              <div class="expense-dash-filter" style="margin-top:12px">
+                <label for="expenseCurrencyFilter">통계 통화</label><select id="expenseCurrencyFilter"><option value="all">전체 통화</option></select>
+                <span class="expense-dash-filter-note">서로 다른 통화는 환산하거나 합산하지 않습니다.</span>
+              </div>
+              <div id="expenseDashboardTotals" class="expense-dash-total-grid"></div>
+              <div id="expenseDashboardMeta" class="expense-dash-kpis"></div>
+              <section class="expense-dash-section"><div class="expense-dash-section-head"><div><h3>항목별 지출 비중</h3><p>선택한 연도와 통화 안에서 비교합니다.</p></div></div><div id="expenseCategoryBreakdown" class="expense-dash-category"></div></section>
+            </div>
+          </details>
         </div>`;
     }
 
@@ -647,11 +671,10 @@
     if (homePanel) {
       homePanel.id = 'familyExpenseHomePanel';
       homePanel.innerHTML = `
-        <h3>💛 우리 가족 여행 경비</h3>
-        <p class="hint">여행별 지출을 모아 한눈에 확인해요.</p>
-        <div id="expenseHomeTotals" class="expense-home-total"><span class="expense-dash-muted">경비를 불러오는 중입니다.</span></div>
-        <div id="expenseHomeRecent"></div>
-        <button type="button" class="expense-home-action" id="expenseHomeOpen">전체 경비 보기 →</button>`;
+        <h3>💛 최근 여행 경비</h3>
+        <p class="hint">최근 다녀온 여행의 지출만 간단히 모아봤어요.</p>
+        <div id="expenseHomeRecent"><span class="expense-dash-muted">경비를 불러오는 중입니다.</span></div>
+        <button type="button" class="expense-home-action" id="expenseHomeOpen">여행별 경비 더 보기 →</button>`;
     }
     document.getElementById('expenseYearFilter')?.addEventListener('change', renderExpenseDashboardUpgrade);
     document.getElementById('expenseCurrencyFilter')?.addEventListener('change', renderExpenseDashboardUpgrade);
@@ -664,14 +687,53 @@
     const yearSelect = document.getElementById('expenseYearFilter');
     const currencySelect = document.getElementById('expenseCurrencyFilter');
     const categoryHolder = document.getElementById('expenseCategoryBreakdown');
-    if (!totalsHolder || !metaHolder || !listHolder || !yearSelect || !currencySelect || !categoryHolder) return;
+    if (!listHolder || !yearSelect) return;
 
-    const years = [...new Set(expenseSnapshot.expenses.map(row => String(row.expense_date || '').slice(0, 4)).filter(value => /^\d{4}$/.test(value)))].sort().reverse();
+    const journalById = new Map(expenseSnapshot.journals.map(row => [String(row.id), row]));
+    const years = [...new Set(expenseSnapshot.expenses
+      .map(row => expenseYearOf(row, journalById))
+      .filter(value => /^\d{4}$/.test(value)))].sort().reverse();
     const selectedYear = yearSelect.value || 'all';
-    yearSelect.innerHTML = '<option value="all">전체 기간</option>' + years.map(year => `<option value="${year}">${year}년</option>`).join('');
+    yearSelect.innerHTML = '<option value="all">전체 연도</option>' + years.map(year => `<option value="${year}">${year}년</option>`).join('');
     yearSelect.value = years.includes(selectedYear) || selectedYear === 'all' ? selectedYear : 'all';
 
     const { rows, trips } = expenseFilteredData();
+    const tripCountLabel = document.getElementById('expenseTripCountLabel');
+    if (tripCountLabel) tripCountLabel.textContent = `${trips.length}개 여행`;
+
+    if (!trips.length) {
+      listHolder.innerHTML = '<div class="expense-dash-empty" style="grid-column:1/-1">선택한 기간에는 등록된 여행 경비가 없습니다.<br>여행 기록의 수정 화면에서 경비를 추가할 수 있어요.</div>';
+    } else {
+      listHolder.innerHTML = trips.map(({ journal, rows: tripRows }) => {
+        const cats = new Map();
+        tripRows.forEach(row => {
+          const key = `${row.category || '기타'}|${row.currency || 'KRW'}`;
+          cats.set(key, (cats.get(key) || 0) + Number(row.amount || 0));
+        });
+        const badges = [...cats.entries()].sort((a,b)=>b[1]-a[1]).map(([key, amount]) => {
+          const [category, currency] = key.split('|');
+          return `<span class="expense-dash-chip">${expenseCategoryEmoji(category)} ${expenseEscape(category)} · ${expenseEscape(expenseFormat(amount,currency))}</span>`;
+        }).join('');
+        const meta = [journal.visit_date || '', journal.location || '', journal.trip_type === 'overseas' ? '해외여행' : '국내여행'].filter(Boolean).map(expenseEscape).join(' · ');
+        const totals = expenseTotalsFor(tripRows).map(([currency, amount]) => `<strong>${expenseEscape(expenseFormat(amount,currency))}</strong><small>${expenseEscape(currency)}</small>`).join('');
+        return `<article class="expense-dash-trip" data-expense-trip="${expenseEscape(journal.client_id || '')}">
+          <div class="expense-dash-trip-head">
+            <div class="expense-dash-trip-cover" data-expense-cover="${expenseEscape(journal.client_id || '')}" aria-hidden="true">${journal.trip_type === 'overseas' ? '🌏' : '🌿'}</div>
+            <div class="expense-dash-trip-title"><h4>${expenseEscape(journal.title || '이름 없는 여행')}</h4><div class="expense-dash-trip-meta">${meta}<br>지출 ${tripRows.length}건</div></div>
+            <div class="expense-dash-trip-totals">${totals}</div>
+          </div>
+          <div class="expense-dash-trip-cats">${badges}</div>
+          <details><summary>상세 지출 내역 ${tripRows.length}건 펼쳐보기</summary><div class="expense-dash-expenses">${tripRows.map(row => `
+            <div class="expense-dash-expense"><div><b>${expenseEscape(row.description || row.category || '경비')}</b><small>${expenseEscape(row.expense_date || '')} · ${expenseEscape(row.category || '기타')}${row.payer ? ' · 결제: ' + expenseEscape(row.payer) : ''}${row.memo ? '<br>' + expenseEscape(row.memo) : ''}</small></div><div><div class="expense-dash-expense-value">${expenseEscape(expenseFormat(row.amount,row.currency || 'KRW'))}</div><div class="expense-dash-expense-value"><button type="button" data-delete-expense="${expenseEscape(row.id)}" data-journal-id="${expenseEscape(row.journal_id)}">삭제</button></div></div></div>`).join('')}</div></details>
+        </article>`;
+      }).join('');
+    }
+
+    // Refresh local representative thumbnails without changing the shared photo records.
+    hydrateExpenseTripCovers();
+
+    // The aggregate figures and category chart are intentionally hidden until the user opens statistics.
+    if (!totalsHolder || !metaHolder || !currencySelect || !categoryHolder) return;
     const currencies = [...new Set(rows.map(row => row.currency || 'KRW'))].sort();
     const oldCurrency = currencySelect.value || 'all';
     currencySelect.innerHTML = '<option value="all">전체 통화</option>' + currencies.map(currency => `<option value="${expenseEscape(currency)}">${expenseEscape(currency)}</option>`).join('');
@@ -680,16 +742,15 @@
 
     const currencyTotals = expenseTotalsFor(rows);
     totalsHolder.innerHTML = currencyTotals.length ? currencyTotals.map(([currency, amount]) => `
-      <div class="expense-dash-total"><small>전체 지출 · ${expenseEscape(currency)}</small><strong>${expenseEscape(expenseFormat(amount, currency))}</strong></div>`).join('') : '<div class="expense-dash-empty" style="width:100%">아직 등록된 여행 경비가 없습니다.<br>여행 기록의 수정 화면에서 경비를 추가해 보세요.</div>';
+      <div class="expense-dash-total"><small>선택 기간 지출 · ${expenseEscape(currency)}</small><strong>${expenseEscape(expenseFormat(amount, currency))}</strong></div>`).join('') : '<div class="expense-dash-empty" style="width:100%">아직 등록된 여행 경비가 없습니다.</div>';
 
     const currencyForAverage = currencyTotals.map(([currency, amount]) => {
       const tripsWithCurrency = trips.filter(trip => trip.rows.some(row => (row.currency || 'KRW') === currency)).length;
       return `<span class="expense-dash-money">${expenseEscape(expenseFormat(tripsWithCurrency ? amount / tripsWithCurrency : 0, currency))}<small>/ 여행 1회 평균 · ${expenseEscape(currency)}</small></span>`;
     }).join('');
-    const tripCount = trips.length;
     metaHolder.innerHTML = `
-      <div class="expense-dash-kpi"><span>경비가 등록된 여행</span><strong>${tripCount}회</strong></div>
-      <div class="expense-dash-kpi"><span>전체 지출 건수</span><strong>${rows.length}건</strong></div>
+      <div class="expense-dash-kpi"><span>경비가 기록된 여행</span><strong>${trips.length}회</strong></div>
+      <div class="expense-dash-kpi"><span>지출 기록</span><strong>${rows.length}건</strong></div>
       <div class="expense-dash-kpi"><span>여행 1회 평균</span><div style="display:flex;flex-wrap:wrap;gap:5px">${currencyForAverage || '<span class="expense-dash-muted">-</span>'}</div></div>`;
 
     const chosenCurrency = currencySelect.value;
@@ -710,47 +771,56 @@
       const percent = categoryTotal ? Math.max(3, Math.round(amount / categoryTotal * 100)) : 0;
       return `<div class="expense-dash-cat-row"><span class="expense-dash-cat-name">${expenseCategoryEmoji(category)} ${expenseEscape(category)}</span><div class="expense-dash-cat-track"><div class="expense-dash-cat-fill" style="width:${percent}%"></div></div><span class="expense-dash-cat-value">${expenseEscape(expenseFormat(amount,currency))} · ${percent}%</span></div>`;
     }).join('') : '<div class="expense-dash-empty">선택한 기간에 집계할 지출이 없습니다.</div>';
+  }
 
-    const tripCountLabel = document.getElementById('expenseTripCountLabel');
-    if (tripCountLabel) tripCountLabel.textContent = `${trips.length}개 여행`;
-    listHolder.innerHTML = trips.length ? trips.map(({ journal, rows: tripRows }) => {
-      const cats = new Map();
-      tripRows.forEach(row => {
-        const key = `${row.category || '기타'}|${row.currency || 'KRW'}`;
-        cats.set(key, (cats.get(key) || 0) + Number(row.amount || 0));
-      });
-      const badges = [...cats.entries()].sort((a,b)=>b[1]-a[1]).map(([key, amount]) => {
-        const [category, currency] = key.split('|');
-        return `<span class="expense-dash-chip">${expenseCategoryEmoji(category)} ${expenseEscape(category)} · ${expenseEscape(expenseFormat(amount,currency))}</span>`;
-      }).join('');
-      const meta = [journal.visit_date || '', journal.location || '', journal.trip_type === 'overseas' ? '해외여행' : '국내여행'].filter(Boolean).map(expenseEscape).join(' · ');
-      return `<article class="expense-dash-trip">
-        <div class="expense-dash-trip-head"><div><h4>${expenseEscape(journal.title || '이름 없는 여행')}</h4><div class="expense-dash-trip-meta">${meta}</div></div><div class="expense-dash-trip-totals">${expenseTotalsFor(tripRows).map(([currency, amount])=>`<strong>${expenseEscape(expenseFormat(amount,currency))}</strong><small>${expenseEscape(currency)}</small>`).join('')}</div></div>
-        <div class="expense-dash-trip-cats">${badges}</div>
-        <details><summary>지출 내역 ${tripRows.length}건 펼쳐보기</summary><div class="expense-dash-expenses">${tripRows.map(row => `
-          <div class="expense-dash-expense"><div><b>${expenseEscape(row.description || row.category || '경비')}</b><small>${expenseEscape(row.expense_date || '')} · ${expenseEscape(row.category || '기타')}${row.payer ? ' · 결제: ' + expenseEscape(row.payer) : ''}${row.memo ? '<br>' + expenseEscape(row.memo) : ''}</small></div><div><div class="expense-dash-expense-value">${expenseEscape(expenseFormat(row.amount,row.currency || 'KRW'))}</div><div class="expense-dash-expense-value"><button type="button" data-delete-expense="${expenseEscape(row.id)}" data-journal-id="${expenseEscape(row.journal_id)}">삭제</button></div></div></div>`).join('')}</div></details>
-      </article>`;
-    }).join('') : '<div class="expense-dash-empty" style="grid-column:1/-1">이 기간에는 경비가 등록된 여행이 없습니다.</div>';
+  async function hydrateExpenseTripCovers() {
+    for (const url of expenseCoverObjectURLs) URL.revokeObjectURL(url);
+    expenseCoverObjectURLs.clear();
+    const state = readState();
+    const token = ++expenseCoverRenderToken;
+    const cards = [...document.querySelectorAll('#expenseDashboardList [data-expense-cover]')];
+    for (const holder of cards) {
+      const tripId = String(holder.dataset.expenseCover || '');
+      const journal = expenseSnapshot.journals.find(row => String(row.client_id) === tripId);
+      if (!journal) continue;
+      const localTrip = state.trips.find(row => String(row.id) === tripId);
+      const photos = state.photos.filter(row => String(row.tripId) === tripId);
+      const coverId = journal.cover_photo_id || localTrip?.coverPhotoId;
+      const photo = (coverId && photos.find(row => String(row.id) === String(coverId))) || photos[0];
+      if (!photo) continue;
+      try {
+        const blob = await readPhotoBlob(photo.id);
+        if (token !== expenseCoverRenderToken) return;
+        if (!blob || !holder.isConnected || !document.getElementById('expenseDashboardList')?.contains(holder)) continue;
+        const url = URL.createObjectURL(blob);
+        expenseCoverObjectURLs.add(url);
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '여행 대표사진';
+        holder.replaceChildren(img);
+      } catch (error) {
+        console.warn('[여행 경비 대표사진]', error);
+      }
+    }
   }
 
   function renderExpenseHomeSummary() {
-    const totals = document.getElementById('expenseHomeTotals');
     const recent = document.getElementById('expenseHomeRecent');
-    if (!totals || !recent) return;
+    if (!recent) return;
     const journalById = new Map(expenseSnapshot.journals.map(row => [String(row.id), row]));
-    const activeRows = expenseSnapshot.expenses.filter(row => journalById.has(String(row.journal_id)));
-    totals.innerHTML = expenseCurrencyBadges(activeRows, true);
     const grouped = new Map();
-    activeRows.forEach(row => {
+    expenseSnapshot.expenses.forEach(row => {
       const key = String(row.journal_id);
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key).push(row);
     });
     const recentTrips = [...grouped.entries()].map(([id, rows]) => ({ journal: journalById.get(id), rows }))
-      .filter(item => item.journal).sort((a,b)=>String(b.journal.visit_date||'').localeCompare(String(a.journal.visit_date||''))).slice(0,3);
+      .filter(item => item.journal)
+      .sort((a,b)=>String(b.journal.visit_date||'').localeCompare(String(a.journal.visit_date||'')))
+      .slice(0,3);
     recent.innerHTML = recentTrips.length ? recentTrips.map(({journal,rows}) => `
-      <div class="expense-home-trip"><div><b>${expenseEscape(journal.title || '여행 기록')}</b><small>${expenseEscape(journal.visit_date || '')} · ${rows.length}건</small></div><strong>${expenseTotalsFor(rows).map(([currency,amount])=>expenseEscape(expenseFormat(amount,currency))).join('<br>')}</strong></div>`).join('')
-      : '<div class="expense-dash-empty">아직 경비가 없습니다.<br>여행 수정 화면에서 첫 지출을 기록해 보세요.</div>';
+      <div class="expense-home-trip"><div><b>${expenseEscape(journal.title || '여행 기록')}</b><small>${expenseEscape(journal.visit_date || '')} · 지출 ${rows.length}건</small></div><strong>${expenseTotalsFor(rows).map(([currency,amount])=>expenseEscape(expenseFormat(amount,currency))).join('<br>')}</strong></div>`).join('')
+      : '<div class="expense-dash-empty">아직 여행 경비가 없습니다.<br>여행 수정 화면에서 지출을 기록하면 여기에 표시됩니다.</div>';
   }
 
   function renderExpenseDetailSummary() {
