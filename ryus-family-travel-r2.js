@@ -1,0 +1,344 @@
+
+/*
+ * Ryus Family Travel Journal - Cloudflare R2 photo sync
+ * Load after Supabase auth bridge and before the main app script.
+ */
+(() => {
+  'use strict';
+
+  const SUPABASE_URL = 'https://pccgvfmvzaqhxsinquiv.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_LS7tlROmDZ05etj_k-L7Cg_6d6_M5mk';
+  const WORKER_URL = 'https://ryus-family-photo.ilovewinic.workers.dev';
+  const STORAGE_KEY = 'familyTravelPreview_v2';
+  const DB_NAME = 'familyTravelPhotos_v2';
+  const DB_STORE = 'originals';
+  const MAX_FILE_SIZE = 15 * 1024 * 1024;
+
+  let accessToken = '';
+  let familyRole = '';
+  let readyForSync = false;
+  let syncRunning = false;
+  let syncTimer = null;
+
+  function readSavedState() {
+    try {
+      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      return {
+        trips: Array.isArray(value.trips) ? value.trips : [],
+        photos: Array.isArray(value.photos) ? value.photos : []
+      };
+    } catch (error) {
+      console.warn('[R2 사진 연동] 기존 저장 데이터를 읽지 못했습니다.', error);
+      return { trips: [], photos: [] };
+    }
+  }
+
+  function saveStateDirect(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function getAccessToken() {
+    const exactKey = 'sb-pccgvfmvzaqhxsinquiv-auth-token';
+    const candidates = [exactKey];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.endsWith('-auth-token') && !candidates.includes(key)) candidates.push(key);
+    }
+    for (const key of candidates) {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+        const token = parsed.access_token || parsed.currentSession?.access_token;
+        if (token) return token;
+      } catch (_) {}
+    }
+    return '';
+  }
+
+  async function rest(path, options = {}) {
+    accessToken = getAccessToken() || accessToken;
+    if (!accessToken) throw new Error('로그인 인증 정보를 찾지 못했습니다. 다시 로그인해 주세요.');
+
+    const headers = {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json'
+    };
+    if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+    if (options.prefer) headers.Prefer = options.prefer;
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    });
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`Supabase 요청 오류 (${response.status}): ${detail.slice(0, 240)}`);
+    }
+    if (response.status === 204) return null;
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  function openPhotoDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(DB_STORE)) {
+          request.result.createObjectStore(DB_STORE, { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('사진 저장 공간을 열지 못했습니다.'));
+    });
+  }
+
+  async function getLocalBlob(id) {
+    const db = await openPhotoDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(DB_STORE, 'readonly');
+      const request = transaction.objectStore(DB_STORE).get(id);
+      request.onsuccess = () => resolve(request.result?.blob || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function putLocalBlob(id, blob) {
+    const db = await openPhotoDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(DB_STORE, 'readwrite');
+      transaction.objectStore(DB_STORE).put({ id, blob });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error('사진 저장에 실패했습니다.'));
+    });
+  }
+
+  async function callWorker(key, method, blob) {
+    accessToken = getAccessToken() || accessToken;
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    if (blob) headers['Content-Type'] = blob.type || 'image/jpeg';
+    const response = await fetch(`${WORKER_URL}/${key}`, {
+      method,
+      headers,
+      body: blob || undefined
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`사진 서버 오류 (${response.status}): ${detail.slice(0, 200)}`);
+    }
+    if (method === 'GET') return response.blob();
+    return true;
+  }
+
+  function photoIdFromKey(objectKey, rowId) {
+    const filePart = String(objectKey || '').split('/').pop() || '';
+    const dash = filePart.indexOf('-');
+    return dash > 0 ? filePart.slice(0, dash) : `r2_${rowId}`;
+  }
+
+  function safeFileName(name) {
+    const cleaned = String(name || 'photo').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+    return cleaned || 'photo';
+  }
+
+  async function getPhotoRows() {
+    return await rest('journal_photos?select=id,journal_id,object_key,file_name,content_type,byte_size,sort_order,is_print_selected&order=sort_order.asc');
+  }
+
+  async function getJournalRows() {
+    return await rest('journals?select=id,client_id');
+  }
+
+  async function getFamilyRole() {
+    const rows = await rest('family_members?select=role&limit=1');
+    if (!rows || !rows.length) throw new Error('가족 계정 권한을 확인하지 못했습니다.');
+    return rows[0].role;
+  }
+
+  async function restoreRemotePhotos() {
+    const [journals, rows] = await Promise.all([getJournalRows(), getPhotoRows()]);
+    const clientIdByJournalId = new Map(journals.map(row => [String(row.id), String(row.client_id)]));
+    const state = readSavedState();
+    const photoById = new Map(state.photos.map(photo => [String(photo.id), photo]));
+    let restored = 0;
+    let failed = 0;
+
+    for (let start = 0; start < rows.length; start += 3) {
+      const batch = rows.slice(start, start + 3);
+      await Promise.all(batch.map(async row => {
+        const tripId = clientIdByJournalId.get(String(row.journal_id));
+        if (!tripId) return;
+        const photoId = photoIdFromKey(row.object_key, row.id);
+        try {
+          let blob = await getLocalBlob(photoId);
+          if (!blob) {
+            blob = await callWorker(row.object_key, 'GET');
+            await putLocalBlob(photoId, blob);
+          }
+          photoById.set(photoId, {
+            id: photoId,
+            tripId,
+            name: row.file_name || '여행 사진',
+            printSelected: !!row.is_print_selected,
+            type: row.content_type || blob.type || 'image/jpeg',
+            size: Number(row.byte_size || blob.size || 0),
+            objectKey: row.object_key
+          });
+          restored += 1;
+        } catch (error) {
+          failed += 1;
+          console.warn('[R2 사진 연동] 사진을 내려받지 못했습니다:', row.object_key, error);
+        }
+      }));
+    }
+
+    state.photos = [...photoById.values()];
+    saveStateDirect(state);
+    return { journals, rows, restored, failed };
+  }
+
+  async function uploadOnePhoto(photo, journalId, sortOrder) {
+    const blob = await getLocalBlob(photo.id);
+    if (!blob) return null;
+    if (blob.size > MAX_FILE_SIZE) {
+      throw new Error(`${photo.name || '사진'}: 15MB를 초과해 업로드하지 않았습니다.`);
+    }
+
+    const key = `photos/${journalId}/${photo.id}-${safeFileName(photo.name)}`;
+    await callWorker(key, 'PUT', blob);
+    try {
+      await rest('journal_photos', {
+        method: 'POST',
+        prefer: 'return=minimal',
+        body: {
+          journal_id: Number(journalId),
+          object_key: key,
+          file_name: photo.name || '여행 사진',
+          content_type: blob.type || photo.type || 'image/jpeg',
+          byte_size: blob.size,
+          sort_order: sortOrder,
+          is_print_selected: !!photo.printSelected
+        }
+      });
+    } catch (error) {
+      await callWorker(key, 'DELETE').catch(() => {});
+      throw error;
+    }
+    return key;
+  }
+
+  async function syncLocalPhotos() {
+    if (familyRole !== 'parent' || syncRunning || !readyForSync) return;
+    syncRunning = true;
+    try {
+      const state = readSavedState();
+      let journals = await getJournalRows();
+      let rows = await getPhotoRows();
+      let journalIdByClientId = new Map(journals.map(row => [String(row.client_id), String(row.id)]));
+      let rowByPhotoId = new Map(rows.map(row => [photoIdFromKey(row.object_key, row.id), row]));
+
+      for (const photo of state.photos) {
+        if (rowByPhotoId.has(String(photo.id))) continue;
+        let journalId = journalIdByClientId.get(String(photo.tripId));
+        for (let attempt = 0; !journalId && attempt < 3; attempt += 1) {
+          await new Promise(resolve => setTimeout(resolve, 900));
+          journals = await getJournalRows();
+          journalIdByClientId = new Map(journals.map(row => [String(row.id), String(row.client_id)]));
+          journalId = journalIdByClientId.get(String(photo.tripId));
+        }
+        if (!journalId) {
+          console.warn('[R2 사진 연동] 연결된 여행 기록을 아직 찾지 못했습니다:', photo.tripId);
+          continue;
+        }
+        const sortOrder = state.photos.filter(item => String(item.tripId) === String(photo.tripId)).findIndex(item => String(item.id) === String(photo.id));
+        try {
+          const key = await uploadOnePhoto(photo, journalId, Math.max(0, sortOrder));
+          if (key) rowByPhotoId.set(String(photo.id), { object_key: key, is_print_selected: !!photo.printSelected });
+        } catch (error) {
+          console.error('[R2 사진 연동] 사진 업로드 실패:', error);
+          showMessage(error.message || '사진 업로드에 실패했습니다.');
+        }
+      }
+
+      for (const photo of state.photos) {
+        const row = rowByPhotoId.get(String(photo.id));
+        if (!row || !!row.is_print_selected === !!photo.printSelected || !row.object_key) continue;
+        try {
+          await rest(`journal_photos?object_key=eq.${encodeURIComponent(row.object_key)}`, {
+            method: 'PATCH',
+            prefer: 'return=minimal',
+            body: { is_print_selected: !!photo.printSelected }
+          });
+          row.is_print_selected = !!photo.printSelected;
+        } catch (error) {
+          console.warn('[R2 사진 연동] 인화 후보 상태 동기화 실패:', error);
+        }
+      }
+    } finally {
+      syncRunning = false;
+    }
+  }
+
+  function showMessage(message) {
+    const banner = document.querySelector('.preview-banner');
+    if (banner) {
+      banner.innerHTML = `<b>사진 업로드 안내</b>${String(message).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}`;
+    }
+  }
+
+  function installStorageWatcher() {
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      originalSetItem.call(this, key, value);
+      if (key === STORAGE_KEY && readyForSync && familyRole === 'parent') {
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(() => {
+          syncLocalPhotos().catch(error => {
+            console.error('[R2 사진 연동] 자동 동기화 실패:', error);
+            showMessage('사진 자동 동기화에 실패했습니다. 인터넷 연결을 확인하고 새로고침해 주세요.');
+          });
+        }, 1400);
+      }
+    };
+  }
+
+  async function bootPhotoSync() {
+    accessToken = getAccessToken();
+    if (!accessToken) throw new Error('Supabase 로그인 토큰을 찾지 못했습니다.');
+    familyRole = await getFamilyRole();
+    const result = await restoreRemotePhotos();
+    readyForSync = result.failed === 0;
+    installStorageWatcher();
+
+    if (familyRole === 'parent') {
+      setTimeout(() => {
+        syncLocalPhotos().catch(error => {
+          console.error('[R2 사진 연동] 초기 사진 업로드 실패:', error);
+          showMessage('일부 사진을 클라우드에 올리지 못했습니다. 인터넷 연결을 확인해 주세요.');
+        });
+      }, 1200);
+    }
+
+    const banner = document.querySelector('.preview-banner');
+    if (banner && result.failed === 0) {
+      banner.innerHTML = '<b>가족 계정 연결</b>여행 기록과 사진은 Supabase·Cloudflare R2에 저장되어 가족 기기에서 함께 볼 수 있습니다. 부모 계정에서 사진을 추가하면 자동으로 공유됩니다.';
+    } else if (result.failed > 0) {
+      showMessage(`사진 ${result.restored}장은 불러왔지만 ${result.failed}장은 아직 내려받지 못했습니다. 새로고침하면 다시 시도합니다.`);
+    }
+  }
+
+  if (window.__familyAuthReady && typeof window.__familyAuthReady.then === 'function') {
+    window.__familyAuthReady = window.__familyAuthReady.then(async () => {
+      try {
+        await bootPhotoSync();
+      } catch (error) {
+        console.error('[R2 사진 연동] 초기화 실패:', error);
+        showMessage('사진 클라우드 연결을 시작하지 못했습니다. 여행 기록은 기존 방식대로 열립니다. ' + (error.message || ''));
+      }
+    });
+  } else {
+    console.error('[R2 사진 연동] Supabase 인증 준비 상태를 찾지 못했습니다.');
+  }
+})();
