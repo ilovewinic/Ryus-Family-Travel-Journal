@@ -60,60 +60,199 @@
     const style = document.createElement('style');
     style.id = 'ryusDetailCoverStyles';
     style.textContent = `
-      #tripDetailFeaturedCover {
-        margin: 0 0 20px;
-        padding: 13px;
-        border: 1px solid #f0e5d9;
-        border-radius: 20px;
-        background: linear-gradient(135deg, #fff8e9 0%, #fff1ee 52%, #edf7fb 100%);
-        box-shadow: 0 7px 20px rgba(76, 91, 112, .06);
+      /* 여행 상세는 액자형 팝업 대신 화면을 가득 쓰는 몰입형 페이지로 표시 */
+      #tripDetailModal {
+        position: fixed;
+        inset: 0;
+        padding: 0;
+        align-items: flex-start;
+        justify-content: flex-start;
+        overflow-y: auto;
+        background: rgba(20, 29, 43, .94);
       }
-      #tripDetailFeaturedCover .featured-cover-heading {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin: 0 2px 10px;
-        color: #786b62;
+      #tripDetailModal .modal {
+        position: relative;
+        width: 100%;
+        max-width: none;
+        min-height: 100vh;
+        max-height: none;
+        margin: 0;
+        overflow: visible;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      #tripDetailModal .modal-head {
+        position: absolute;
+        z-index: 8;
+        top: 0;
+        left: 0;
+        right: 0;
+        min-height: 118px;
+        padding: 25px clamp(20px, 5vw, 72px) 42px;
+        align-items: flex-start;
+        color: #fff;
+        border: 0;
+        background: linear-gradient(180deg, rgba(13, 22, 36, .72), rgba(13, 22, 36, 0));
+        pointer-events: none;
+      }
+      #tripDetailModal .modal-head > div { pointer-events: none; }
+      #tripDetailModal .modal-head h3 {
+        color: #fff;
+        font-size: clamp(21px, 3vw, 34px);
+        line-height: 1.25;
+        letter-spacing: -.8px;
+        text-shadow: 0 2px 14px rgba(0,0,0,.35);
+      }
+      #tripDetailModal .trip-detail-subtitle {
+        color: rgba(255,255,255,.88);
         font-size: 12px;
-        font-weight: 900;
+        text-shadow: 0 1px 8px rgba(0,0,0,.45);
       }
-      #tripDetailFeaturedCover .featured-cover-note {
-        color: #9a9290;
-        font-size: 10px;
-        font-weight: 600;
-        text-align: right;
+      #tripDetailModal .modal-head .close {
+        flex: 0 0 auto;
+        pointer-events: auto;
+        width: 42px;
+        height: 42px;
+        border: 1px solid rgba(255,255,255,.5);
+        border-radius: 50%;
+        background: rgba(255,255,255,.88);
+        color: #344258;
+        font-size: 24px;
+        box-shadow: 0 4px 16px rgba(0,0,0,.18);
       }
+      #tripDetailModal .modal-body { padding: 0 0 12px; }
+      #tripDetailFeaturedCover {
+        position: relative;
+        width: 100%;
+        height: 100svh;
+        min-height: 540px;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        background: linear-gradient(135deg, #8fb8ca, #ddc8b7 55%, #7f9c91);
+        box-shadow: none;
+      }
+      #tripDetailFeaturedCover::after {
+        content: '';
+        position: absolute;
+        inset: 35% 0 0;
+        z-index: 2;
+        pointer-events: none;
+        background: linear-gradient(180deg, transparent 0%, rgba(11, 19, 31, .12) 45%, rgba(11, 19, 31, .62) 100%);
+      }
+      #tripDetailFeaturedCover .featured-cover-heading { display: none; }
       #tripDetailFeaturedCover .featured-cover-frame {
+        position: absolute;
+        inset: 0;
         display: grid;
         place-items: center;
-        min-height: 190px;
-        max-height: 430px;
+        min-height: 0;
+        max-height: none;
         overflow: hidden;
-        border: 1px solid rgba(255,255,255,.9);
-        border-radius: 14px;
-        background: rgba(255,255,255,.72);
+        border: 0;
+        border-radius: 0;
+        background: transparent;
       }
       #tripDetailFeaturedCover img {
+        position: absolute;
+        inset: 0;
         display: block;
         width: 100%;
-        height: min(56vh, 390px);
-        min-height: 190px;
-        object-fit: contain;
-        border-radius: 13px;
+        height: 100%;
+        min-height: 0;
+        object-fit: cover;
+        object-position: center;
+        border-radius: 0;
       }
       #tripDetailFeaturedCover .featured-cover-placeholder {
-        padding: 38px 15px;
-        color: #9b9e9f;
+        position: relative;
+        z-index: 3;
+        padding: 38px 20px;
+        color: rgba(255,255,255,.94);
         text-align: center;
-        font-size: 13px;
-        line-height: 1.7;
+        font-size: 15px;
+        line-height: 1.8;
+        text-shadow: 0 2px 12px rgba(0,0,0,.25);
+      }
+      #tripDetailFeaturedCover .featured-cover-bottom {
+        position: absolute;
+        z-index: 4;
+        left: clamp(20px, 5vw, 72px);
+        right: clamp(20px, 5vw, 72px);
+        bottom: 30px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 14px;
+        color: #fff;
+        pointer-events: none;
+      }
+      #tripDetailFeaturedCover .featured-cover-note {
+        max-width: 70%;
+        color: rgba(255,255,255,.9);
+        font-size: 11px;
+        font-weight: 700;
+        text-align: left;
+        text-shadow: 0 1px 8px rgba(0,0,0,.55);
+      }
+      #tripDetailFeaturedCover .featured-cover-scroll {
+        white-space: nowrap;
+        color: rgba(255,255,255,.9);
+        font-size: 11px;
+        font-weight: 800;
+        text-shadow: 0 1px 8px rgba(0,0,0,.55);
+      }
+      #tripDetailModal .trip-detail-info {
+        max-width: 1120px;
+        margin: 26px auto 28px;
+        padding: 23px 26px;
+        border: 1px solid #f1e8df;
+        border-radius: 20px;
+        background: linear-gradient(120deg, #fff8e8, #fff0ed, #eef7fb);
+      }
+      #tripDetailModal .trip-detail-gallery-head {
+        max-width: 1160px;
+        margin: 0 auto 13px;
+        padding: 0 20px;
+      }
+      #tripDetailModal #tripDetailPhotos {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px 24px;
+      }
+      #tripDetailModal .modal-actions {
+        position: relative;
+        z-index: 5;
+        background: #fff;
       }
       @media (max-width: 720px) {
-        #tripDetailFeaturedCover { padding: 9px; margin-bottom: 15px; }
-        #tripDetailFeaturedCover .featured-cover-frame { min-height: 155px; }
-        #tripDetailFeaturedCover img { height: 34vh; min-height: 155px; }
-        #tripDetailFeaturedCover .featured-cover-heading { font-size: 11px; }
+        #tripDetailModal .modal-head {
+          min-height: 102px;
+          padding: 18px 16px 35px;
+        }
+        #tripDetailModal .modal-head h3 { font-size: 21px; padding-right: 6px; }
+        #tripDetailModal .trip-detail-subtitle { font-size: 10px; }
+        #tripDetailModal .modal-head .close { width: 38px; height: 38px; }
+        #tripDetailFeaturedCover { height: 100svh; min-height: 500px; }
+        #tripDetailFeaturedCover .featured-cover-bottom {
+          left: 17px;
+          right: 17px;
+          bottom: 22px;
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 7px;
+        }
+        #tripDetailFeaturedCover .featured-cover-note { max-width: 100%; font-size: 10px; }
+        #tripDetailFeaturedCover .featured-cover-scroll { font-size: 10px; }
+        #tripDetailModal .trip-detail-info {
+          margin: 17px 12px 22px;
+          padding: 17px;
+          border-radius: 16px;
+        }
+        #tripDetailModal .trip-detail-gallery-head { padding: 0 14px; }
+        #tripDetailModal #tripDetailPhotos { padding: 0 12px 18px; }
       }
     `;
     document.head.appendChild(style);
@@ -128,14 +267,14 @@
     if (!featured) {
       featured = document.createElement('section');
       featured.id = 'tripDetailFeaturedCover';
-      featured.setAttribute('aria-label', '여행 대표사진');
+      featured.setAttribute('aria-label', '여행 대표사진 전체 화면');
       featured.innerHTML = `
-        <div class="featured-cover-heading">
-          <span>🌟 여행 대표사진</span>
-          <span class="featured-cover-note" id="tripDetailFeaturedNote"></span>
-        </div>
         <div class="featured-cover-frame" id="tripDetailFeaturedFrame">
-          <div class="featured-cover-placeholder">📷<br>대표사진을 불러오는 중입니다.</div>
+          <div class="featured-cover-placeholder">📷<br>여행 사진을 불러오는 중입니다.</div>
+        </div>
+        <div class="featured-cover-bottom">
+          <span class="featured-cover-note" id="tripDetailFeaturedNote"></span>
+          <span class="featured-cover-scroll">아래로 스크롤해 여행 기록 보기 ↓</span>
         </div>`;
       body.insertBefore(featured, body.firstElementChild);
     }
