@@ -398,6 +398,7 @@
     modal.dataset.featuredCoverInstalled = 'true';
     installStyles();
     ensureFeaturedArea();
+    installExpenseDashboard();
 
     // Capture the clicked trip before the page's own handler opens its detail dialog.
     document.addEventListener('click', event => {
@@ -426,6 +427,408 @@
       renderToken += 1;
       releaseObjectUrl();
     }));
+  }
+
+
+  // ---------- Parent-only expense dashboard upgrade ----------
+  // Uses the existing journal_expenses table and its current parent-only RLS.
+  // No database migration is required for this presentation upgrade.
+  const EXPENSE_API_URL = 'https://pccgvfmvzaqhxsinquiv.supabase.co';
+  const EXPENSE_API_KEY = 'sb_publishable_LS7tlROmDZ05etj_k-L7Cg_6d6_M5mk';
+  let expenseSnapshot = { journals: [], expenses: [] };
+  let expenseActiveTripId = null;
+  let expenseRefreshTimer = null;
+
+  const expenseEscape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+
+  function expenseAccessToken() {
+    const keys = ['sb-pccgvfmvzaqhxsinquiv-auth-token'];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.endsWith('-auth-token') && !keys.includes(key)) keys.push(key);
+    }
+    for (const key of keys) {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+        const token = parsed.access_token || parsed.currentSession?.access_token;
+        if (token) return token;
+      } catch (_) {}
+    }
+    return '';
+  }
+
+  async function expenseApi(path) {
+    const token = expenseAccessToken();
+    if (!token) throw new Error('로그인 인증을 확인하지 못했습니다. 다시 로그인해 주세요.');
+    const response = await fetch(`${EXPENSE_API_URL}/rest/v1/${path}`, {
+      method: 'GET',
+      headers: {
+        apikey: EXPENSE_API_KEY,
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json'
+      }
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`경비 데이터를 불러오지 못했습니다 (${response.status}): ${detail.slice(0, 180)}`);
+    }
+    return response.json();
+  }
+
+  async function isExpenseParent() {
+    if (document.body.classList.contains('auth-child')) return false;
+    const rows = await expenseApi('family_members?select=role');
+    return Array.isArray(rows) && rows.some(row => row.role === 'parent');
+  }
+
+  function expenseFormat(value, currency = 'KRW') {
+    const n = Number(value || 0);
+    const formats = {
+      KRW: ['₩', 0], JPY: ['¥', 0], USD: ['$', 2], EUR: ['€', 2],
+      CNY: ['CN¥', 2], TWD: ['NT$', 0], THB: ['฿', 2], VND: ['₫', 0], HKD: ['HK$', 2]
+    };
+    const [symbol, digits] = formats[currency] || ['', 2];
+    const formatted = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 0, maximumFractionDigits: digits }).format(n);
+    return symbol ? `${symbol}${formatted}` : `${formatted} ${currency}`;
+  }
+
+  function expenseTotalsFor(rows) {
+    const totals = new Map();
+    rows.forEach(row => {
+      const currency = row.currency || 'KRW';
+      totals.set(currency, (totals.get(currency) || 0) + Number(row.amount || 0));
+    });
+    return [...totals.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }
+
+  function expenseYearOf(row, journalById) {
+    const journal = journalById.get(String(row.journal_id));
+    return String(row.expense_date || journal?.visit_date || '').slice(0, 4);
+  }
+
+  function expenseCategoryEmoji(category) {
+    return ({ '숙박': '🛏️', '교통': '🚗', '식비': '🍽️', '입장·체험': '🎟️', '쇼핑': '🛍️', '기타': '🧾' })[category] || '🧾';
+  }
+
+  function expenseCurrencyBadges(rows, prominent = false) {
+    const totals = expenseTotalsFor(rows);
+    if (!totals.length) return '<span class="expense-dash-muted">등록된 경비 없음</span>';
+    return totals.map(([currency, amount]) =>
+      `<span class="expense-dash-money${prominent ? ' is-prominent' : ''}">${expenseEscape(expenseFormat(amount, currency))}<small>${expenseEscape(currency)}</small></span>`
+    ).join('');
+  }
+
+  function expenseFilteredData() {
+    const year = document.getElementById('expenseYearFilter')?.value || 'all';
+    const journalById = new Map(expenseSnapshot.journals.map(row => [String(row.id), row]));
+    const rows = expenseSnapshot.expenses.filter(row => year === 'all' || expenseYearOf(row, journalById) === year);
+    const grouped = new Map();
+    rows.forEach(row => {
+      const key = String(row.journal_id);
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(row);
+    });
+    const trips = [...grouped.entries()].map(([journalId, items]) => ({
+      journal: journalById.get(journalId), rows: items
+    })).filter(item => item.journal).sort((a, b) =>
+      String(b.journal.visit_date || '').localeCompare(String(a.journal.visit_date || ''))
+    );
+    return { rows, trips, journalById };
+  }
+
+  function expenseInstallStyles() {
+    if (document.getElementById('ryusExpenseDashboardStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'ryusExpenseDashboardStyles';
+    style.textContent = `
+      #ryusExpenseDashboard { display:block; }
+      .expense-dash-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:3px 0 16px}
+      .expense-dash-intro h2{margin:0;font-size:25px;letter-spacing:-.8px;color:#344258}
+      .expense-dash-intro p{margin:5px 0 0;font-size:12px;color:#8792a1;line-height:1.6}
+      .expense-dash-filter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 16px;padding:12px 14px;border:1px solid #eee7dc;border-radius:15px;background:#fff}
+      .expense-dash-filter label{font-size:11px;font-weight:800;color:#68778a}
+      .expense-dash-filter select{border:1px solid #e8e9ec;border-radius:10px;background:#fff;padding:8px 10px;color:#526178;font-size:11px}
+      .expense-dash-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:13px}
+      .expense-dash-kpi{padding:14px 15px;border:1px solid #eee7dc;border-radius:16px;background:linear-gradient(135deg,#fff,#fffaf3);min-width:0}
+      .expense-dash-kpi span{display:block;color:#8b95a3;font-size:10px;font-weight:700;margin-bottom:6px}
+      .expense-dash-kpi strong{display:block;color:#344258;font-size:20px;letter-spacing:-.5px;overflow-wrap:anywhere}
+      .expense-dash-total-grid{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:17px}
+      .expense-dash-total{flex:1 1 180px;padding:14px 16px;border-radius:16px;border:1px solid #e7edf1;background:linear-gradient(125deg,#f1f9fc,#f8fbff)}
+      .expense-dash-total small{display:block;color:#8191a2;font-size:10px;font-weight:800;margin-bottom:5px}
+      .expense-dash-total strong{font-size:22px;color:#316b88;letter-spacing:-.4px}
+      .expense-dash-section{margin:16px 0;padding:17px;border:1px solid #eee7dc;border-radius:18px;background:#fff;box-shadow:0 7px 20px rgba(74,83,105,.04)}
+      .expense-dash-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+      .expense-dash-section-head h3{font-size:15px;margin:0;color:#3b4960}
+      .expense-dash-section-head p{font-size:10px;color:#929baa;margin:4px 0 0}
+      .expense-dash-category{display:grid;gap:11px}
+      .expense-dash-cat-row{display:grid;grid-template-columns:minmax(90px,130px) minmax(80px,1fr) auto;align-items:center;gap:10px}
+      .expense-dash-cat-name{font-size:11px;color:#59677a;font-weight:800;white-space:nowrap}
+      .expense-dash-cat-track{height:9px;background:#f1f3f5;border-radius:999px;overflow:hidden}
+      .expense-dash-cat-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#86c8d9,#f3b4a8)}
+      .expense-dash-cat-value{font-size:10px;color:#657487;font-weight:800;white-space:nowrap;text-align:right}
+      .expense-dash-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+      .expense-dash-trip{min-width:0;border:1px solid #eee7dc;border-radius:17px;background:linear-gradient(150deg,#fff 0%,#fffdf9 100%);overflow:hidden}
+      .expense-dash-trip-head{padding:15px 16px 12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      .expense-dash-trip h4{margin:0 0 5px;font-size:14px;color:#344258;line-height:1.35}
+      .expense-dash-trip-meta{font-size:10px;color:#8994a3;line-height:1.55}
+      .expense-dash-trip-totals{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+      .expense-dash-trip-totals strong{font-size:15px;color:#3f7891;white-space:nowrap}
+      .expense-dash-trip-totals small{font-size:9px;color:#98a2ae}
+      .expense-dash-trip-cats{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 13px}
+      .expense-dash-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:999px;background:#f4f7f8;color:#69788b;font-size:9px;font-weight:800}
+      .expense-dash-trip details{border-top:1px solid #f0ece7;background:rgba(250,251,252,.75)}
+      .expense-dash-trip summary{cursor:pointer;list-style:none;padding:11px 15px;color:#64758a;font-size:10px;font-weight:900}
+      .expense-dash-trip summary::-webkit-details-marker{display:none}
+      .expense-dash-trip summary:after{content:'＋';float:right;color:#9aa4b0}
+      .expense-dash-trip details[open] summary:after{content:'－'}
+      .expense-dash-expenses{padding:0 13px 10px}
+      .expense-dash-expense{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px dashed #e9e9e9}
+      .expense-dash-expense b{display:block;font-size:11px;color:#536176;margin-bottom:3px}
+      .expense-dash-expense small{display:block;color:#929baa;font-size:9px;line-height:1.55}
+      .expense-dash-expense-value{text-align:right;white-space:nowrap;font-size:11px;font-weight:900;color:#46566b}
+      .expense-dash-expense-value button{display:block;margin:5px 0 0 auto;background:#fff0ec;color:#b96f66;border-radius:7px;padding:4px 7px;font-size:9px;font-weight:800}
+      .expense-dash-empty{padding:25px 18px;text-align:center;border:1px dashed #e5e1dc;border-radius:15px;color:#909aaa;font-size:11px;line-height:1.7;background:#fff}
+      .expense-dash-muted{font-size:10px;color:#9aa3ad}
+      .expense-dash-money{display:inline-flex;align-items:baseline;gap:5px;padding:7px 10px;border:1px solid #e8edf1;border-radius:11px;background:#f8fbfd;font-size:13px;font-weight:900;color:#3e7189;white-space:nowrap}
+      .expense-dash-money small{font-size:8px;color:#92a0ad;font-weight:800}
+      .expense-dash-money.is-prominent{font-size:15px;padding:9px 12px}
+      #familyExpenseHomePanel .expense-home-total{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+      #familyExpenseHomePanel .expense-home-trip{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 0;border-top:1px solid #f2eee8}
+      #familyExpenseHomePanel .expense-home-trip b{display:block;font-size:11px;color:#536176}
+      #familyExpenseHomePanel .expense-home-trip small{display:block;margin-top:3px;color:#98a2ae;font-size:9px}
+      #familyExpenseHomePanel .expense-home-trip strong{font-size:11px;color:#3f7891;text-align:right}
+      #familyExpenseHomePanel .expense-home-action{width:100%;margin-top:9px;padding:10px 12px;border-radius:11px;background:#eff7fa;color:#4b7f96;font-size:10px;font-weight:900}
+      #tripDetailExpensePanel .expense-detail-category{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0 12px}
+      #tripDetailExpensePanel .expense-detail-category span{padding:6px 9px;border-radius:10px;background:#f5f8fa;color:#647487;font-size:10px;font-weight:800}
+      @media(max-width:900px){.expense-dash-cards{grid-template-columns:1fr}}
+      @media(max-width:720px){.expense-dash-intro h2{font-size:21px}.expense-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.expense-dash-kpi strong{font-size:17px}.expense-dash-section{padding:13px}.expense-dash-cat-row{grid-template-columns:88px minmax(45px,1fr) auto;gap:7px}.expense-dash-cat-name{font-size:10px}.expense-dash-cat-value{font-size:9px}.expense-dash-trip-head{padding:13px}.expense-dash-trip-cats{padding:0 13px 10px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  async function loadExpenseSnapshot() {
+    const [journals, expenses] = await Promise.all([
+      expenseApi('journals?select=id,client_id,title,visit_date,location,trip_type&order=visit_date.desc'),
+      expenseApi('journal_expenses?select=id,journal_id,expense_date,category,description,amount,currency,payer,memo,created_at&order=expense_date.desc')
+    ]);
+    expenseSnapshot = {
+      journals: Array.isArray(journals) ? journals : [],
+      expenses: Array.isArray(expenses) ? expenses : []
+    };
+    renderExpenseDashboardUpgrade();
+    renderExpenseHomeSummary();
+    renderExpenseDetailSummary();
+  }
+
+  function installExpenseDashboardShell() {
+    const view = document.getElementById('view-expenses');
+    if (view) {
+      view.innerHTML = `
+        <div id="ryusExpenseDashboard">
+          <div class="expense-dash-intro">
+            <div><h2>우리 가족 여행 경비 💰</h2><p>여행별로 얼마를 사용했는지 한눈에 보고, 세부 지출도 펼쳐볼 수 있어요.</p></div>
+            <button type="button" class="secondary" id="expenseDashboardRefreshNew">새로고침 ↻</button>
+          </div>
+          <div class="expense-dash-filter">
+            <label for="expenseYearFilter">조회 기간</label><select id="expenseYearFilter"><option value="all">전체 기간</option></select>
+            <label for="expenseCurrencyFilter">항목별 통화</label><select id="expenseCurrencyFilter"><option value="all">전체 통화</option></select>
+          </div>
+          <div id="expenseDashboardTotals" class="expense-dash-total-grid"></div>
+          <div id="expenseDashboardMeta" class="expense-dash-kpis"></div>
+          <section class="expense-dash-section"><div class="expense-dash-section-head"><div><h3>📊 지출 항목별 비중</h3><p>선택한 연도와 통화 기준으로 계산합니다.</p></div></div><div id="expenseCategoryBreakdown" class="expense-dash-category"></div></section>
+          <section class="expense-dash-section"><div class="expense-dash-section-head"><div><h3>🧳 여행별 경비</h3><p>여행 카드를 펼치면 세부 지출 내역을 확인할 수 있습니다.</p></div><span class="soft-pill" id="expenseTripCountLabel">0개 여행</span></div><div id="expenseDashboardList" class="expense-dash-cards"></div></section>
+        </div>`;
+    }
+
+    const homeCandidates = [...document.querySelectorAll('#view-home .content-grid .side-panel')];
+    const homePanel = homeCandidates.find(panel => panel.textContent.includes('부모 전용 경비')) || homeCandidates[1];
+    if (homePanel) {
+      homePanel.id = 'familyExpenseHomePanel';
+      homePanel.innerHTML = `
+        <h3>💛 우리 가족 여행 경비</h3>
+        <p class="hint">여행별 지출을 모아 한눈에 확인해요.</p>
+        <div id="expenseHomeTotals" class="expense-home-total"><span class="expense-dash-muted">경비를 불러오는 중입니다.</span></div>
+        <div id="expenseHomeRecent"></div>
+        <button type="button" class="expense-home-action" id="expenseHomeOpen">전체 경비 보기 →</button>`;
+    }
+    document.getElementById('expenseYearFilter')?.addEventListener('change', renderExpenseDashboardUpgrade);
+    document.getElementById('expenseCurrencyFilter')?.addEventListener('change', renderExpenseDashboardUpgrade);
+  }
+
+  function renderExpenseDashboardUpgrade() {
+    const totalsHolder = document.getElementById('expenseDashboardTotals');
+    const metaHolder = document.getElementById('expenseDashboardMeta');
+    const listHolder = document.getElementById('expenseDashboardList');
+    const yearSelect = document.getElementById('expenseYearFilter');
+    const currencySelect = document.getElementById('expenseCurrencyFilter');
+    const categoryHolder = document.getElementById('expenseCategoryBreakdown');
+    if (!totalsHolder || !metaHolder || !listHolder || !yearSelect || !currencySelect || !categoryHolder) return;
+
+    const years = [...new Set(expenseSnapshot.expenses.map(row => String(row.expense_date || '').slice(0, 4)).filter(value => /^\d{4}$/.test(value)))].sort().reverse();
+    const selectedYear = yearSelect.value || 'all';
+    yearSelect.innerHTML = '<option value="all">전체 기간</option>' + years.map(year => `<option value="${year}">${year}년</option>`).join('');
+    yearSelect.value = years.includes(selectedYear) || selectedYear === 'all' ? selectedYear : 'all';
+
+    const { rows, trips } = expenseFilteredData();
+    const currencies = [...new Set(rows.map(row => row.currency || 'KRW'))].sort();
+    const oldCurrency = currencySelect.value || 'all';
+    currencySelect.innerHTML = '<option value="all">전체 통화</option>' + currencies.map(currency => `<option value="${expenseEscape(currency)}">${expenseEscape(currency)}</option>`).join('');
+    const preferredCurrency = currencies.includes('KRW') ? 'KRW' : (currencies[0] || 'all');
+    currencySelect.value = currencies.includes(oldCurrency) ? oldCurrency : (currencies.length <= 1 ? 'all' : preferredCurrency);
+
+    const currencyTotals = expenseTotalsFor(rows);
+    totalsHolder.innerHTML = currencyTotals.length ? currencyTotals.map(([currency, amount]) => `
+      <div class="expense-dash-total"><small>전체 지출 · ${expenseEscape(currency)}</small><strong>${expenseEscape(expenseFormat(amount, currency))}</strong></div>`).join('') : '<div class="expense-dash-empty" style="width:100%">아직 등록된 여행 경비가 없습니다.<br>여행 기록의 수정 화면에서 경비를 추가해 보세요.</div>';
+
+    const currencyForAverage = currencyTotals.map(([currency, amount]) => {
+      const tripsWithCurrency = trips.filter(trip => trip.rows.some(row => (row.currency || 'KRW') === currency)).length;
+      return `<span class="expense-dash-money">${expenseEscape(expenseFormat(tripsWithCurrency ? amount / tripsWithCurrency : 0, currency))}<small>/ 여행 1회 평균 · ${expenseEscape(currency)}</small></span>`;
+    }).join('');
+    const tripCount = trips.length;
+    metaHolder.innerHTML = `
+      <div class="expense-dash-kpi"><span>경비가 등록된 여행</span><strong>${tripCount}회</strong></div>
+      <div class="expense-dash-kpi"><span>전체 지출 건수</span><strong>${rows.length}건</strong></div>
+      <div class="expense-dash-kpi"><span>여행 1회 평균</span><div style="display:flex;flex-wrap:wrap;gap:5px">${currencyForAverage || '<span class="expense-dash-muted">-</span>'}</div></div>`;
+
+    const chosenCurrency = currencySelect.value;
+    const categoryRows = rows.filter(row => chosenCurrency === 'all' || (row.currency || 'KRW') === chosenCurrency);
+    const categoryTotals = new Map();
+    const categoryCurrencyTotals = new Map();
+    categoryRows.forEach(row => {
+      const category = row.category || '기타';
+      const currency = row.currency || 'KRW';
+      const key = `${category}|${currency}`;
+      categoryTotals.set(key, (categoryTotals.get(key) || 0) + Number(row.amount || 0));
+      categoryCurrencyTotals.set(currency, (categoryCurrencyTotals.get(currency) || 0) + Number(row.amount || 0));
+    });
+    const categories = [...categoryTotals.entries()].sort((a, b) => b[1] - a[1]);
+    categoryHolder.innerHTML = categories.length ? categories.map(([key, amount]) => {
+      const [category, currency] = key.split('|');
+      const categoryTotal = categoryCurrencyTotals.get(currency) || 0;
+      const percent = categoryTotal ? Math.max(3, Math.round(amount / categoryTotal * 100)) : 0;
+      return `<div class="expense-dash-cat-row"><span class="expense-dash-cat-name">${expenseCategoryEmoji(category)} ${expenseEscape(category)}</span><div class="expense-dash-cat-track"><div class="expense-dash-cat-fill" style="width:${percent}%"></div></div><span class="expense-dash-cat-value">${expenseEscape(expenseFormat(amount,currency))} · ${percent}%</span></div>`;
+    }).join('') : '<div class="expense-dash-empty">선택한 기간에 집계할 지출이 없습니다.</div>';
+
+    const tripCountLabel = document.getElementById('expenseTripCountLabel');
+    if (tripCountLabel) tripCountLabel.textContent = `${trips.length}개 여행`;
+    listHolder.innerHTML = trips.length ? trips.map(({ journal, rows: tripRows }) => {
+      const cats = new Map();
+      tripRows.forEach(row => {
+        const key = `${row.category || '기타'}|${row.currency || 'KRW'}`;
+        cats.set(key, (cats.get(key) || 0) + Number(row.amount || 0));
+      });
+      const badges = [...cats.entries()].sort((a,b)=>b[1]-a[1]).map(([key, amount]) => {
+        const [category, currency] = key.split('|');
+        return `<span class="expense-dash-chip">${expenseCategoryEmoji(category)} ${expenseEscape(category)} · ${expenseEscape(expenseFormat(amount,currency))}</span>`;
+      }).join('');
+      const meta = [journal.visit_date || '', journal.location || '', journal.trip_type === 'overseas' ? '해외여행' : '국내여행'].filter(Boolean).map(expenseEscape).join(' · ');
+      return `<article class="expense-dash-trip">
+        <div class="expense-dash-trip-head"><div><h4>${expenseEscape(journal.title || '이름 없는 여행')}</h4><div class="expense-dash-trip-meta">${meta}</div></div><div class="expense-dash-trip-totals">${expenseTotalsFor(tripRows).map(([currency, amount])=>`<strong>${expenseEscape(expenseFormat(amount,currency))}</strong><small>${expenseEscape(currency)}</small>`).join('')}</div></div>
+        <div class="expense-dash-trip-cats">${badges}</div>
+        <details><summary>지출 내역 ${tripRows.length}건 펼쳐보기</summary><div class="expense-dash-expenses">${tripRows.map(row => `
+          <div class="expense-dash-expense"><div><b>${expenseEscape(row.description || row.category || '경비')}</b><small>${expenseEscape(row.expense_date || '')} · ${expenseEscape(row.category || '기타')}${row.payer ? ' · 결제: ' + expenseEscape(row.payer) : ''}${row.memo ? '<br>' + expenseEscape(row.memo) : ''}</small></div><div><div class="expense-dash-expense-value">${expenseEscape(expenseFormat(row.amount,row.currency || 'KRW'))}</div><div class="expense-dash-expense-value"><button type="button" data-delete-expense="${expenseEscape(row.id)}" data-journal-id="${expenseEscape(row.journal_id)}">삭제</button></div></div></div>`).join('')}</div></details>
+      </article>`;
+    }).join('') : '<div class="expense-dash-empty" style="grid-column:1/-1">이 기간에는 경비가 등록된 여행이 없습니다.</div>';
+  }
+
+  function renderExpenseHomeSummary() {
+    const totals = document.getElementById('expenseHomeTotals');
+    const recent = document.getElementById('expenseHomeRecent');
+    if (!totals || !recent) return;
+    const journalById = new Map(expenseSnapshot.journals.map(row => [String(row.id), row]));
+    const activeRows = expenseSnapshot.expenses.filter(row => journalById.has(String(row.journal_id)));
+    totals.innerHTML = expenseCurrencyBadges(activeRows, true);
+    const grouped = new Map();
+    activeRows.forEach(row => {
+      const key = String(row.journal_id);
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(row);
+    });
+    const recentTrips = [...grouped.entries()].map(([id, rows]) => ({ journal: journalById.get(id), rows }))
+      .filter(item => item.journal).sort((a,b)=>String(b.journal.visit_date||'').localeCompare(String(a.journal.visit_date||''))).slice(0,3);
+    recent.innerHTML = recentTrips.length ? recentTrips.map(({journal,rows}) => `
+      <div class="expense-home-trip"><div><b>${expenseEscape(journal.title || '여행 기록')}</b><small>${expenseEscape(journal.visit_date || '')} · ${rows.length}건</small></div><strong>${expenseTotalsFor(rows).map(([currency,amount])=>expenseEscape(expenseFormat(amount,currency))).join('<br>')}</strong></div>`).join('')
+      : '<div class="expense-dash-empty">아직 경비가 없습니다.<br>여행 수정 화면에서 첫 지출을 기록해 보세요.</div>';
+  }
+
+  function renderExpenseDetailSummary() {
+    if (!expenseActiveTripId) return;
+    const panel = document.getElementById('tripDetailExpensePanel');
+    const summary = document.getElementById('tripDetailExpenseSummary');
+    const list = document.getElementById('tripDetailExpenseList');
+    if (!panel || !summary || !list) return;
+    const journal = expenseSnapshot.journals.find(row => String(row.client_id) === String(expenseActiveTripId));
+    if (!journal) return;
+    const rows = expenseSnapshot.expenses.filter(row => String(row.journal_id) === String(journal.id));
+    summary.innerHTML = expenseCurrencyBadges(rows, true);
+    const categoryTotals = new Map();
+    rows.forEach(row => {
+      const key = `${row.category || '기타'}|${row.currency || 'KRW'}`;
+      categoryTotals.set(key, (categoryTotals.get(key) || 0) + Number(row.amount || 0));
+    });
+    let categoryBox = document.getElementById('tripDetailExpenseCategories');
+    if (!categoryBox) {
+      categoryBox = document.createElement('div');
+      categoryBox.id = 'tripDetailExpenseCategories';
+      categoryBox.className = 'expense-detail-category';
+      summary.insertAdjacentElement('afterend', categoryBox);
+    }
+    categoryBox.innerHTML = [...categoryTotals.entries()].sort((a,b)=>b[1]-a[1]).map(([key,amount]) => {
+      const [category,currency] = key.split('|');
+      return `<span>${expenseCategoryEmoji(category)} ${expenseEscape(category)} · ${expenseEscape(expenseFormat(amount,currency))}</span>`;
+    }).join('');
+    list.innerHTML = rows.length ? rows.map(row => `
+      <div class="expense-entry"><div><strong>${expenseEscape(row.description || row.category || '경비')}</strong><small>${expenseEscape(row.expense_date || '')} · ${expenseEscape(row.category || '기타')}${row.payer ? ' · 결제: ' + expenseEscape(row.payer) : ''}${row.memo ? '<br>' + expenseEscape(row.memo) : ''}</small></div><div class="expense-value">${expenseEscape(expenseFormat(row.amount,row.currency || 'KRW'))}</div></div>`).join('')
+      : '<div class="expense-empty">이 여행에 등록된 경비가 없습니다.</div>';
+  }
+
+  function scheduleExpenseRefresh(delay = 450) {
+    clearTimeout(expenseRefreshTimer);
+    expenseRefreshTimer = setTimeout(() => loadExpenseSnapshot().catch(error => {
+      console.error('[가족 여행 경비 대시보드]', error);
+    }), delay);
+  }
+
+  function installExpenseDashboard() {
+    if (window.__ryusExpenseDashboardInstalled) return;
+    window.__ryusExpenseDashboardInstalled = true;
+    expenseInstallStyles();
+
+    isExpenseParent().then(isParent => {
+      if (!isParent) return;
+      installExpenseDashboardShell();
+      loadExpenseSnapshot().catch(error => {
+        console.error('[가족 여행 경비 대시보드]', error);
+        const holder = document.getElementById('expenseDashboardList');
+        if (holder) holder.innerHTML = `<div class="expense-dash-empty">경비를 불러오지 못했습니다.<br>${expenseEscape(error.message || '')}</div>`;
+      });
+    }).catch(error => console.warn('[가족 여행 경비 권한 확인]', error));
+
+    document.addEventListener('click', event => {
+      const tripCard = event.target.closest?.('[data-trip-card]');
+      const mapTrip = event.target.closest?.('[data-open-trip]');
+      if (tripCard) expenseActiveTripId = tripCard.dataset.tripCard;
+      else if (mapTrip) expenseActiveTripId = mapTrip.dataset.openTrip;
+
+      if (event.target.closest?.('[data-view="expenses"]')) scheduleExpenseRefresh(240);
+      if (event.target.closest?.('#expenseDashboardRefreshNew')) scheduleExpenseRefresh(0);
+      if (event.target.closest?.('#expenseHomeOpen')) document.querySelector('[data-view="expenses"]')?.click();
+      if (event.target.closest?.('[data-delete-expense]')) scheduleExpenseRefresh(850);
+      if (event.target.closest?.('#addExpenseButton')) scheduleExpenseRefresh(900);
+    }, true);
+
+    const detailModal = document.getElementById('tripDetailModal');
+    if (detailModal) {
+      new MutationObserver(() => {
+        if (detailModal.classList.contains('open')) {
+          setTimeout(() => renderExpenseDetailSummary(), 260);
+        } else {
+          expenseActiveTripId = null;
+        }
+      }).observe(detailModal, { attributes: true, attributeFilter: ['class'] });
+    }
   }
 
   function waitForAuthAndInstall() {
