@@ -174,7 +174,10 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 </div>
 
 <!-- photo lightbox -->
-<div class="lightbox" id="lightbox"><div class="lightbox-inner"><div class="lightbox-title" id="lightboxTitle"></div><img id="lightboxImage" alt="여행 사진 크게 보기" /><div class="lightbox-controls"><button class="secondary" id="downloadOriginal">원본 다운로드 ⬇</button><button class="secondary" id="closeLightbox">닫기</button></div></div></div>
+<div class="lightbox" id="lightbox"><div class="lightbox-inner"><div class="lightbox-title" id="lightboxTitle"></div><img id="lightboxImage" alt="여행 사진 크게 보기" /><div class="lightbox-controls"><button class="secondary" id="downloadOriginal">원본 다운로드 ⬇</button><button class="secondary" id="deletePhotoBtn"
+style="background:#fff0ec;color:#bd655b;display:none;">
+사진 삭제 🗑
+</button><button class="secondary" id="closeLightbox">닫기</button></div></div></div>
 <div class="toast" id="toast"></div>
 <script src="./ryus-family-travel-supabase-auth.js"></script>
 <script src="./ryus-family-travel-r2.js"></script>
@@ -362,9 +365,59 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
   async function deleteTrip(id){const related=photos.filter(p=>p.tripId===id);for(const p of related){await deleteBlob(p.id).catch(()=>{});photoBlobs.delete(p.id);}photos=photos.filter(p=>p.tripId!==id);trips=trips.filter(t=>t.id!==id);persist();closeModal();renderAll();toast('여행 기록과 연결 사진을 삭제했어요.');}
   $('deleteTripBtn').addEventListener('click',()=>{const id=$('editTripId').value;if(id&&confirm('이 여행 기록과 연결된 사진을 모두 삭제할까요? 이 브라우저의 미리보기 데이터에서만 삭제됩니다.'))deleteTrip(id);});
   function openTripDetail(id){const t=getTrip(id);if(!t)return;openModal(t);}
-  async function openLightbox(id){const p=getPhoto(id);if(!p||!photoBlobs.has(id))return;currentLightboxPhoto=p;const t=getTrip(p.tripId);$('lightboxTitle').textContent=`${t?.title||'여행 사진'} · ${p.name}`;$('lightboxImage').src=await resizedURL(id,2000);$('lightbox').classList.add('open');}
+  async function openLightbox(id){const p=getPhoto(id);if(!p||!photoBlobs.has(id))return;currentLightboxPhoto=p;$('deletePhotoBtn').style.display =
+  window.isFamilyPhotoParent?.() && window.deleteFamilyPhotoFromCloud
+    ? 'inline-flex'
+    : 'none';const t=getTrip(p.tripId);$('lightboxTitle').textContent=`${t?.title||'여행 사진'} · ${p.name}`;$('lightboxImage').src=await resizedURL(id,2000);$('lightbox').classList.add('open');}
   $('downloadOriginal').addEventListener('click',()=>{if(!currentLightboxPhoto)return;const p=currentLightboxPhoto;const url=blobURL(p.id);const a=document.createElement('a');a.href=url;a.download=p.name||'family-trip-photo';document.body.appendChild(a);a.click();a.remove();toast('원본 사진 다운로드를 시작했어요.');});
-  $('closeLightbox').addEventListener('click',()=>{$('lightbox').classList.remove('open');$('lightboxImage').src='';currentLightboxPhoto=null;});$('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))$('closeLightbox').click();});
+    $('deletePhotoBtn').addEventListener('click', async () => {
+    const photo = currentLightboxPhoto;
+    if (!photo) return;
+
+    if (!window.isFamilyPhotoParent?.()) {
+      toast('부모 계정에서만 사진을 삭제할 수 있습니다.');
+      return;
+    }
+
+    if (typeof window.deleteFamilyPhotoFromCloud !== 'function') {
+      toast('클라우드 삭제 기능을 찾지 못했습니다. 새로고침해 주세요.');
+      return;
+    }
+
+    if (!confirm('이 사진을 가족 앨범에서 완전히 삭제할까요? 다른 기기에서도 삭제됩니다.')) return;
+
+    const button = $('deletePhotoBtn');
+    button.disabled = true;
+
+    try {
+      await window.deleteFamilyPhotoFromCloud(photo.id);
+      await deleteBlob(photo.id).catch(error => console.warn(error));
+      photoBlobs.delete(photo.id);
+
+      for (const [key, url] of variantURLs.entries()) {
+        if (key === `original:${photo.id}` || key.startsWith(`${photo.id}:`)) {
+          URL.revokeObjectURL(url);
+          variantURLs.delete(key);
+        }
+      }
+
+      photos = photos.filter(item => item.id !== photo.id);
+
+      $('lightbox').classList.remove('open');
+      $('lightboxImage').src = '';
+      currentLightboxPhoto = null;
+
+      persist();
+      renderAll();
+      toast('사진을 삭제했습니다. 🗑️');
+
+    } catch (error) {
+      console.error('[사진 삭제 실패]', error);
+      toast('사진 삭제 실패: ' + (error.message || '다시 시도해 주세요.'));
+    } finally {
+      button.disabled = false;
+    }
+  });$('closeLightbox').addEventListener('click',()=>{$('lightbox').classList.remove('open');$('lightboxImage').src='';currentLightboxPhoto=null;});$('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))$('closeLightbox').click();});
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
   $('togglePicker').addEventListener('click',startPicker);
   $('addTripTop').addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
