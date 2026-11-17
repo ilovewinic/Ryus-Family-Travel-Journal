@@ -49,6 +49,119 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 @media(max-width:720px){.hero-cover{min-height:232px;padding:21px 19px 20px;border-radius:22px;margin:0 0 15px;align-items:flex-start}.hero-copy{padding-right:13%;max-width:100%}.hero-kicker{font-size:8px;letter-spacing:1.2px;margin-bottom:9px}.hero-cover h2{font-size:23px;line-height:1.32;max-width:390px}.hero-cover p{max-width:265px;font-size:10px;line-height:1.5;margin:8px 0 12px}.hero-cta{font-size:10px;padding:9px 13px}.hero-art{width:55%;height:115px;right:-1px;bottom:0;opacity:.94}.hero-art svg{width:100%;max-height:none}.sticker-sun{right:24%;top:2px;font-size:22px}.sticker-flower{right:3%;bottom:11px;font-size:20px}.sticker-plane{left:10%;top:5%;font-size:18px}.hero-art-note{right:5%;bottom:8px;font-size:7px;padding:5px 7px}.sparkle-one{right:44%;top:12px;font-size:17px}.sparkle-two{right:4%;top:39%;font-size:21px}}
 @media(max-width:390px){.hero-cover{min-height:224px;padding:18px 15px}.hero-cover h2{font-size:21px}.hero-copy{padding-right:4%}.hero-art{width:57%;height:105px}.hero-cover p{max-width:235px}}
 
+/* 여행 상세 화면 */
+#tripDetailModal .modal {
+  width: min(900px, 100%);
+}
+
+.trip-detail-subtitle {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.trip-detail-info {
+  padding: 18px;
+  border-radius: 17px;
+  background: linear-gradient(120deg, #fff8e8, #fff0ed, #eef7fb);
+  margin-bottom: 23px;
+}
+
+.trip-detail-info .detail-line {
+  margin: 9px 0;
+  color: #59677a;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.trip-detail-info .detail-memo {
+  border-top: 1px solid #ffffff;
+  margin-top: 13px;
+  padding-top: 13px;
+  white-space: pre-wrap;
+  line-height: 1.8;
+}
+
+.trip-detail-gallery-head {
+  margin: 8px 0 13px;
+}
+
+.trip-detail-gallery-head h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.trip-detail-gallery-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.detail-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.detail-photo-empty {
+  grid-column: 1 / -1;
+  padding: 30px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 15px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 여행별 사진첩 */
+.photo-album-group {
+  grid-column: 1 / -1;
+  padding: 17px;
+  margin-bottom: 5px;
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  background: white;
+}
+
+.photo-album-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.photo-album-heading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.photo-album-heading p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.photo-album-group .photo-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .detail-photo-grid,
+  .photo-album-group .photo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .photo-album-group {
+    padding: 12px;
+  }
+
+  .photo-album-heading {
+    align-items: flex-start;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -173,6 +286,45 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
   </div>
 </div>
 
+<!-- trip detail view -->
+<div class="modal-backdrop" id="tripDetailModal"
+     role="dialog" aria-modal="true"
+     aria-labelledby="tripDetailTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="tripDetailTitle">여행 기록</h3>
+        <p id="tripDetailSubtitle" class="trip-detail-subtitle"></p>
+      </div>
+      <button class="close" id="closeTripDetail" aria-label="닫기">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div id="tripDetailInfo" class="trip-detail-info"></div>
+
+      <div class="trip-detail-gallery-head">
+        <div>
+          <h3>📸 이 여행의 사진</h3>
+          <p id="tripDetailPhotoCount">0장의 사진</p>
+        </div>
+      </div>
+
+      <div id="tripDetailPhotos" class="detail-photo-grid"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="secondary" id="closeTripDetailBottom">
+        닫기
+      </button>
+      <div class="right-actions">
+        <button type="button" class="primary" id="editTripFromDetail">
+          ✏️ 여행 기록 수정
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+  
 <!-- photo lightbox -->
 <div class="lightbox" id="lightbox"><div class="lightbox-inner"><div class="lightbox-title" id="lightboxTitle"></div><img id="lightboxImage" alt="여행 사진 크게 보기" /><div class="lightbox-controls"><button class="secondary" id="downloadOriginal">원본 다운로드 ⬇</button><button class="secondary" id="deletePhotoBtn"
 style="background:#fff0ec;color:#bd655b;display:none;">
@@ -197,6 +349,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let pickerVisible = false;
   let pendingFiles = [];
   let currentLightboxPhoto = null;
+  let currentTripDetailId = null;
   let mapMarkers = [];
 
   function toast(message) {
@@ -312,17 +465,90 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     return `<article class="photo-card"><div class="photo-image" data-open-photo="${escapeHTML(p.id)}"><img data-photo-id="${escapeHTML(p.id)}" data-maxside="${mode==='prints'?900:500}" alt="${escapeHTML(p.name)}" /><span class="zoom-hint">눌러서 크게 보기</span>${p.printSelected?'<span class="print-badge">💛 인화 후보</span>':''}</div><div class="photo-info"><b>${escapeHTML(p.name||'여행 사진')}</b><span>${escapeHTML(t?.title||'여행 기록')} · ${escapeHTML(dateLabel(t?.date||''))}</span></div><div class="photo-actions">${remove?`<button class="tiny-btn neutral" data-remove-print="${escapeHTML(p.id)}">인화 목록에서 빼기</button>`:`<button class="tiny-btn" data-add-print="${escapeHTML(p.id)}">♡ 인화용 담기</button>`}</div></article>`;
   }
   function renderPhotos() {
-    $('photoCountPill').textContent=`${photos.length}장의 사진`;
-    const all=[...photos].reverse();
-    $('allPhotos').innerHTML=all.length?all.map(p=>photoCard(p,'all')).join(''):'<div class="empty-card" style="grid-column:1/-1"><b>아직 사진이 없어요.</b>여행 기록을 추가하면서 사진을 함께 올려보세요.</div>';
-    const selected=all.filter(p=>p.printSelected);
-    $('printCountPill').textContent=`${selected.length}장 선택`;
-    $('printPhotos').innerHTML=selected.length?selected.map(p=>photoCard(p,'prints')).join(''):'<div class="empty-card" style="grid-column:1/-1"><b>인화 후보 사진이 아직 없어요.</b>전체 사진첩에서 마음에 드는 사진을 담아보세요.</div>';
-    $('printQuick').innerHTML=selected.length?selected.slice(0,3).map(p=>{const t=getTrip(p.tripId);return `<div class="quick-row"><div class="quick-emoji">🖼️</div><div><b>${escapeHTML(p.name||'여행 사진')}</b><span>${escapeHTML(t?.title||'여행 기록')}</span></div></div>`}).join(''):'<div class="locked-box" style="background:#fffaf2;border-color:#f0e6d9;color:#8a8f97">아직 담아둔 사진이 없어요. 전체 사진첩에서 하트를 눌러보세요.</div>';
-    hydrateImages($('view-photos'));hydrateImages($('view-prints'));
-    document.querySelectorAll('[data-add-print]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();const p=getPhoto(btn.dataset.addPrint);if(p){p.printSelected=true;persist();renderAll();toast('인화 후보에 담았어요. 💛');}}));
-    document.querySelectorAll('[data-remove-print]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();const p=getPhoto(btn.dataset.removePrint);if(p){p.printSelected=false;persist();renderAll();toast('인화 후보에서 뺐어요. 원본은 그대로 있어요.');}}));
-    document.querySelectorAll('[data-open-photo]').forEach(el=>el.addEventListener('click',()=>openLightbox(el.dataset.openPhoto)));
+    $('photoCountPill').textContent = `${photos.length}장의 사진`;
+
+    const all = [...photos].reverse();
+
+    // 여행 날짜가 최신인 순서로 사진을 그룹화합니다.
+    const albums = [...trips]
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+      .map(trip => ({
+        trip,
+        items: all.filter(p => String(p.tripId) === String(trip.id))
+      }))
+      .filter(album => album.items.length > 0);
+
+    $('allPhotos').innerHTML = albums.length
+      ? albums.map(({ trip, items }) => `
+          <section class="photo-album-group">
+            <div class="photo-album-heading">
+              <div>
+                <h3>🧳 ${escapeHTML(trip.title)}</h3>
+                <p>📍 ${escapeHTML(trip.place || '장소 미지정')}
+                · 📅 ${escapeHTML(dateLabel(trip.date))}</p>
+              </div>
+              <span class="soft-pill">${items.length}장</span>
+            </div>
+            <div class="photo-grid">
+              ${items.map(p => photoCard(p, 'all')).join('')}
+            </div>
+          </section>
+        `).join('')
+      : '<div class="empty-card" style="grid-column:1/-1"><b>아직 사진이 없어요.</b>여행 기록에 사진을 추가하면 여행별 앨범이 만들어집니다.</div>';
+
+    const selected = all.filter(p => p.printSelected);
+
+    $('printCountPill').textContent = `${selected.length}장 선택`;
+
+    $('printPhotos').innerHTML = selected.length
+      ? selected.map(p => photoCard(p, 'prints')).join('')
+      : '<div class="empty-card" style="grid-column:1/-1"><b>인화 후보 사진이 아직 없어요.</b>전체 사진첩에서 마음에 드는 사진을 담아보세요.</div>';
+
+    $('printQuick').innerHTML = selected.length
+      ? selected.slice(0, 3).map(p => {
+          const t = getTrip(p.tripId);
+          return `<div class="quick-row">
+            <div class="quick-emoji">🖼️</div>
+            <div>
+              <b>${escapeHTML(p.name || '여행 사진')}</b>
+              <span>${escapeHTML(t?.title || '여행 기록')}</span>
+            </div>
+          </div>`;
+        }).join('')
+      : '<div class="locked-box" style="background:#fffaf2;border-color:#f0e6d9;color:#8a8f97">아직 담아둔 사진이 없어요. 전체 사진첩에서 하트를 눌러보세요.</div>';
+
+    hydrateImages($('view-photos'));
+    hydrateImages($('view-prints'));
+
+    document.querySelectorAll('[data-add-print]').forEach(btn =>
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const p = getPhoto(btn.dataset.addPrint);
+        if (p) {
+          p.printSelected = true;
+          persist();
+          renderAll();
+          toast('인화 후보에 담았어요. 💛');
+        }
+      })
+    );
+
+    document.querySelectorAll('[data-remove-print]').forEach(btn =>
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const p = getPhoto(btn.dataset.removePrint);
+        if (p) {
+          p.printSelected = false;
+          persist();
+          renderAll();
+          toast('인화 후보에서 뺐어요. 원본은 그대로 있어요.');
+        }
+      })
+    );
+
+    document.querySelectorAll('[data-open-photo]').forEach(el =>
+      el.addEventListener('click', () => openLightbox(el.dataset.openPhoto))
+    );
   }
   function renderAll() {renderStats();refreshMapFilters();renderMap();renderTrips();renderPhotos();}
   function setView(view) {
@@ -364,12 +590,61 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   });
   async function deleteTrip(id){const related=photos.filter(p=>p.tripId===id);for(const p of related){await deleteBlob(p.id).catch(()=>{});photoBlobs.delete(p.id);}photos=photos.filter(p=>p.tripId!==id);trips=trips.filter(t=>t.id!==id);persist();closeModal();renderAll();toast('여행 기록과 연결 사진을 삭제했어요.');}
   $('deleteTripBtn').addEventListener('click',()=>{const id=$('editTripId').value;if(id&&confirm('이 여행 기록과 연결된 사진을 모두 삭제할까요? 이 브라우저의 미리보기 데이터에서만 삭제됩니다.'))deleteTrip(id);});
-  function openTripDetail(id){const t=getTrip(id);if(!t)return;openModal(t);}
+ function openTripDetail(id) {
+  const t = getTrip(id);
+  if (!t) return;
+
+  currentTripDetailId = id;
+
+  $('tripDetailTitle').textContent = t.title || '여행 기록';
+  $('tripDetailSubtitle').textContent =
+    `${dateLabel(t.date)} · ${t.type === 'overseas' ? '해외 여행' : '국내 여행'}`;
+
+  $('tripDetailInfo').innerHTML = `
+    <div class="detail-line">📅 ${escapeHTML(dateLabel(t.date))}</div>
+    <div class="detail-line">📍 ${escapeHTML(t.place || '장소 미지정')}</div>
+    <div class="detail-line">🗺️ ${escapeHTML([t.region, t.country].filter(Boolean).join(' · '))}</div>
+    <div class="detail-memo">📝 ${escapeHTML(t.memo || '작성된 여행 메모가 없습니다.').replace(/\n/g, '<br>')}</div>
+  `;
+
+  const tripPhotos = getTripPhotos(id);
+  $('tripDetailPhotoCount').textContent = `${tripPhotos.length}장의 사진`;
+
+  $('tripDetailPhotos').innerHTML = tripPhotos.length
+    ? tripPhotos.map(p => photoCard(p, 'all')).join('')
+    : '<div class="detail-photo-empty">📷 아직 이 여행에 등록된 사진이 없습니다.</div>';
+
+  $('editTripFromDetail').style.display =
+    window.isFamilyPhotoParent?.() ? 'inline-flex' : 'none';
+
+  $('tripDetailModal').classList.add('open');
+
+  hydrateImages($('tripDetailPhotos'));
+
+  $('tripDetailPhotos').querySelectorAll('[data-open-photo]').forEach(el => {
+    el.addEventListener('click', () => openLightbox(el.dataset.openPhoto));
+  });
+
+  $('tripDetailPhotos').querySelectorAll('[data-add-print]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const p = getPhoto(btn.dataset.addPrint);
+      if (p) {
+        p.printSelected = true;
+        persist();
+        renderAll();
+        openTripDetail(id);
+        toast('인화 후보에 담았어요. 💛');
+      }
+    });
+  });
+}
   async function openLightbox(id){const p=getPhoto(id);if(!p||!photoBlobs.has(id))return;currentLightboxPhoto=p;$('deletePhotoBtn').style.display =
   window.isFamilyPhotoParent?.() && window.deleteFamilyPhotoFromCloud
     ? 'inline-flex'
     : 'none';const t=getTrip(p.tripId);$('lightboxTitle').textContent=`${t?.title||'여행 사진'} · ${p.name}`;$('lightboxImage').src=await resizedURL(id,2000);$('lightbox').classList.add('open');}
   $('downloadOriginal').addEventListener('click',()=>{if(!currentLightboxPhoto)return;const p=currentLightboxPhoto;const url=blobURL(p.id);const a=document.createElement('a');a.href=url;a.download=p.name||'family-trip-photo';document.body.appendChild(a);a.click();a.remove();toast('원본 사진 다운로드를 시작했어요.');});
+
     $('deletePhotoBtn').addEventListener('click', async () => {
     const photo = currentLightboxPhoto;
     if (!photo) return;
@@ -380,7 +655,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     }
 
     if (typeof window.deleteFamilyPhotoFromCloud !== 'function') {
-      toast('클라우드 삭제 기능을 찾지 못했습니다. 새로고침해 주세요.');
+      toast('클라우드 삭제 기능을 찾지 못했습니다.');
       return;
     }
 
@@ -410,14 +685,39 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       persist();
       renderAll();
       toast('사진을 삭제했습니다. 🗑️');
-
     } catch (error) {
       console.error('[사진 삭제 실패]', error);
       toast('사진 삭제 실패: ' + (error.message || '다시 시도해 주세요.'));
     } finally {
       button.disabled = false;
     }
-  });$('closeLightbox').addEventListener('click',()=>{$('lightbox').classList.remove('open');$('lightboxImage').src='';currentLightboxPhoto=null;});$('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))$('closeLightbox').click();});
+  });
+
+  function closeTripDetail() {
+    $('tripDetailModal').classList.remove('open');
+    currentTripDetailId = null;
+  }
+
+  $('closeTripDetail').addEventListener('click', closeTripDetail);
+  $('closeTripDetailBottom').addEventListener('click', closeTripDetail);
+
+  $('tripDetailModal').addEventListener('click', e => {
+    if (e.target === $('tripDetailModal')) closeTripDetail();
+  });
+
+  $('editTripFromDetail').addEventListener('click', () => {
+    if (!window.isFamilyPhotoParent?.()) {
+      toast('부모 계정에서만 수정할 수 있습니다.');
+      return;
+    }
+
+    const trip = getTrip(currentTripDetailId);
+    if (!trip) return;
+
+    closeTripDetail();
+    openModal(trip);
+  });
+ $('closeLightbox').addEventListener('click',()=>{$('lightbox').classList.remove('open');$('lightboxImage').src='';currentLightboxPhoto=null;});$('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))$('closeLightbox').click();});
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
   $('togglePicker').addEventListener('click',startPicker);
   $('addTripTop').addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
