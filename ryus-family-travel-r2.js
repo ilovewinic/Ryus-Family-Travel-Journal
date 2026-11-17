@@ -281,6 +281,33 @@
     }
   }
 
+window.isFamilyPhotoParent = () => familyRole === 'parent';
+  
+  window.deleteFamilyPhotoFromCloud = async function(photoId) {
+    if (familyRole !== 'parent') {
+      throw new Error('부모 계정에서만 사진을 삭제할 수 있습니다.');
+    }
+
+    const rows = await getPhotoRows();
+    const row = rows.find(item =>
+      photoIdFromKey(item.object_key, item.id) === String(photoId)
+    );
+
+    if (!row) return true;
+
+    await callWorker(row.object_key, 'DELETE');
+
+    await rest(
+      `journal_photos?object_key=eq.${encodeURIComponent(row.object_key)}`,
+      {
+        method: 'DELETE',
+        prefer: 'return=minimal'
+      }
+    );
+
+    return true;
+  };
+  
   function showMessage(message) {
     const banner = document.querySelector('.preview-banner');
     if (banner) {
