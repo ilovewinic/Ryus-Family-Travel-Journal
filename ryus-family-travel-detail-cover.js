@@ -53,6 +53,8 @@
       URL.revokeObjectURL(currentObjectUrl);
       currentObjectUrl = null;
     }
+    const backdrop = document.getElementById('tripDetailFeaturedBackdrop');
+    if (backdrop) backdrop.style.backgroundImage = 'none';
   }
 
   function installStyles() {
@@ -143,8 +145,23 @@
         background: linear-gradient(180deg, transparent 0%, rgba(11, 19, 31, .12) 45%, rgba(11, 19, 31, .62) 100%);
       }
       #tripDetailFeaturedCover .featured-cover-heading { display: none; }
+      /* 사진 전체는 원본 비율로 보여주고, 남는 공간은 같은 사진을 흐리게 확장해 채움 */
+      #tripDetailFeaturedCover .featured-cover-backdrop {
+        position: absolute;
+        z-index: 0;
+        inset: -28px;
+        background-color: #59636b;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        filter: blur(30px) brightness(.68) saturate(.82);
+        transform: scale(1.08);
+        opacity: .98;
+        pointer-events: none;
+      }
       #tripDetailFeaturedCover .featured-cover-frame {
         position: absolute;
+        z-index: 1;
         inset: 0;
         display: grid;
         place-items: center;
@@ -157,14 +174,16 @@
       }
       #tripDetailFeaturedCover img {
         position: absolute;
+        z-index: 1;
         inset: 0;
         display: block;
         width: 100%;
         height: 100%;
         min-height: 0;
-        object-fit: cover;
+        object-fit: contain;
         object-position: center;
         border-radius: 0;
+        filter: drop-shadow(0 8px 24px rgba(0,0,0,.14));
       }
       #tripDetailFeaturedCover .featured-cover-placeholder {
         position: relative;
@@ -269,6 +288,7 @@
       featured.id = 'tripDetailFeaturedCover';
       featured.setAttribute('aria-label', '여행 대표사진 전체 화면');
       featured.innerHTML = `
+        <div class="featured-cover-backdrop" id="tripDetailFeaturedBackdrop" aria-hidden="true"></div>
         <div class="featured-cover-frame" id="tripDetailFeaturedFrame">
           <div class="featured-cover-placeholder">📷<br>여행 사진을 불러오는 중입니다.</div>
         </div>
@@ -355,6 +375,8 @@
 
     releaseObjectUrl();
     currentObjectUrl = URL.createObjectURL(blob);
+    const backdrop = document.getElementById('tripDetailFeaturedBackdrop');
+    if (backdrop) backdrop.style.backgroundImage = `url("${currentObjectUrl}")`;
     const image = document.createElement('img');
     image.src = currentObjectUrl;
     image.alt = `${trip.title || '여행'} 대표사진`;
