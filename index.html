@@ -435,7 +435,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   }
   function regionLabelForTrip(trip) {
     if (trip.type === 'overseas') return String(trip.country || '해외').trim() || '해외';
-    const raw = String(trip.region || '').trim().replace(/\\s+/g, ' ');
+    const raw = String(trip.region || '').trim().replace(/\s+/g, ' ');
     if (!raw) return '지역 미입력';
     if (/서울/.test(raw)) return '서울';
     if (/인천/.test(raw)) return '인천';
