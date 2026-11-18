@@ -633,7 +633,9 @@
 
     document.addEventListener('click', event => {
       const card = event.target.closest('[data-trip-card]');
+      const mainMapTrip = event.target.closest('[data-open-trip]');
       if (card) window.__familyTravelLastOpenedTripId = card.dataset.tripCard;
+      else if (mainMapTrip) window.__familyTravelLastOpenedTripId = mainMapTrip.dataset.openTrip;
       const open = event.target.closest('[data-trip-open]');
       if (open) { event.preventDefault(); openTripFromExplorer(open.dataset.tripOpen); }
       const view = event.target.closest('.nav[data-view]');
