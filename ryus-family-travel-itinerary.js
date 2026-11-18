@@ -255,11 +255,11 @@
       if (!select) return;
       const current = select.value || row.dataset.parentPlaceClientId || '';
       const category = row.querySelector('[data-field="category"]')?.value || 'attraction';
-      const eligible = rows.filter(candidate =>
+      const eligible = ['restaurant','cafe'].includes(category) ? rows.filter(candidate =>
         candidate !== row &&
         !String(candidate.querySelector('[data-field="parentPlaceClientId"]')?.value || candidate.dataset.parentPlaceClientId || '').trim() &&
         ['attraction','experience'].includes(candidate.querySelector('[data-field="category"]')?.value)
-      );
+      ) : [];
       const validParentIds = new Set(eligible.map(candidate => String(candidate.dataset.clientId)));
       const selectedParent = validParentIds.has(String(current)) ? current : '';
       select.innerHTML = '<option value="">여행에 직접 연결 (상위 장소 없음)</option>' + eligible.map(candidate => {
@@ -749,6 +749,12 @@
     });
     document.addEventListener('input', event => {
       if (event.target.matches('#tripPlaceEditorRows [data-field="name"]')) { refreshPlaceParentOptions(); refreshStayPlaceOptions(); }
+    });
+    document.addEventListener('change', event => {
+      if (event.target.matches('#tripStayEditorRows [data-field="relatedPlaceClientId"]')) {
+        const row = event.target.closest('.trip-extra-item');
+        if (row) row.dataset.relatedPlaceClientId = event.target.value || '';
+      }
     });
     document.addEventListener('click', event => {
       if (event.target.closest('#addTripPlaceRow')) setTimeout(() => { refreshPlaceParentOptions(); refreshStayPlaceOptions(); }, 30);
