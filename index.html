@@ -402,10 +402,23 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   async function loadBlobURLs() {
     for (const p of photos) { try { const blob=await getBlob(p.id); if(blob){photoBlobs.set(p.id,blob);} } catch(e){console.warn(e);} }
   }
-  function blobURL(id) { const b=photoBlobs.get(id); if(!b)return ''; const key='original:'+id; if(!variantURLs.has(key))variantURLs.set(key,URL.createObjectURL(b)); return variantURLs.get(key); }
+  function blobURL(id) { const b=photoBlobs.get(String(id)); if(!b)return ''; const key='original:'+id; if(!variantURLs.has(key))variantURLs.set(key,URL.createObjectURL(b)); return variantURLs.get(key); }
+  async function ensurePhotoBlob(id) {
+    const key=String(id || '');
+    if (!key) return null;
+    if (photoBlobs.has(key)) return photoBlobs.get(key);
+    let blob = null;
+    try { blob = await getBlob(key); } catch (error) { console.warn('[사진 불러오기] 기기 저장소 확인 실패', error); }
+    if (!blob && typeof window.loadFamilyPhotoBlobById === 'function') {
+      try { blob = await window.loadFamilyPhotoBlobById(key); }
+      catch (error) { console.warn('[사진 불러오기] 클라우드 재시도 실패', error); }
+    }
+    if (blob) photoBlobs.set(key, blob);
+    return blob;
+  }
   async function resizedURL(id,maxSide) {
     const key=id+':'+maxSide; if(variantURLs.has(key)) return variantURLs.get(key);
-    const blob=photoBlobs.get(id); if(!blob) return '';
+    const blob=await ensurePhotoBlob(id); if(!blob) return '';
     try {
       if(!window.createImageBitmap) return blobURL(id);
       const bitmap=await createImageBitmap(blob); const scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height));
@@ -417,7 +430,15 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   }
   async function hydrateImages(root=document) {
     const imgs=[...root.querySelectorAll('img[data-photo-id]')];
-    await Promise.all(imgs.map(async img=>{const id=img.dataset.photoId;const size=Number(img.dataset.maxside||500);const url=await resizedURL(id,size);if(url)img.src=url;}));
+    await Promise.all(imgs.map(async img=>{
+      const id=String(img.dataset.photoId || '');
+      const size=Number(img.dataset.maxside||500);
+      const url=await resizedURL(id,size);
+      if(url && img.isConnected && String(img.dataset.photoId || '')===id) {
+        if (img.getAttribute('src') !== url) img.src=url;
+        img.dataset.photoLoaded='true';
+      }
+    }));
   }
   function getTrip(id){return trips.find(t=>t.id===id);}
   function getPhoto(id){return photos.find(p=>p.id===id);}
@@ -551,11 +572,19 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     homeFeatureTripId = trip.id;
     const tripPhotos = getTripPhotos(trip.id);
     const photo = tripPhotos.find(p => String(p.id) === String(trip.coverPhotoId)) || tripPhotos[0];
-    const imageUrl = photo ? blobURL(photo.id) : '';
-    if (imageUrl) {
-      image.src = imageUrl;
-      image.style.opacity = '1';
+    if (photo) {
+      image.dataset.photoId = String(photo.id);
+      image.dataset.maxside = '1600';
+      image.removeAttribute('src');
+      image.style.opacity = '0';
+      hydrateImages($('homeFeaturedBanner')).then(() => {
+        if (String(image.dataset.photoId || '') === String(photo.id) && image.getAttribute('src')) {
+          image.style.opacity = '1';
+        }
+      });
     } else {
+      delete image.dataset.photoId;
+      delete image.dataset.maxside;
       image.removeAttribute('src');
       image.style.opacity = '0';
     }
@@ -601,7 +630,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       const photosForTrip = getTripPhotos(trip.id);
       const cover = photosForTrip.find(photo => String(photo.id) === String(trip.coverPhotoId)) || photosForTrip[0];
       const thumbnail = cover
-        ? `<img src="${blobURL(cover.id)}" alt="" />`
+        ? `<img data-photo-id="${escapeHTML(cover.id)}" data-maxside="140" alt="" />`
         : '<span class="home-feature-choice-placeholder">🌿</span>';
       return `<button type="button" class="home-feature-choice ${selectedIndex>=0?'selected':''}" data-home-feature-choice="${escapeHTML(id)}">
         <span class="home-feature-choice-thumb">${thumbnail}</span>
@@ -609,6 +638,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
         <span class="home-feature-choice-state">${selectedIndex>=0 ? (selectedIndex+1)+'번째' : '선택하기'}</span>
       </button>`;
     }).join('');
+    hydrateImages(list);
   }
   async function openHomeFeaturedSettings() {
     const modal = $('homeFeaturedSettingsModal');
@@ -685,7 +715,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   }
   function coverHTML(t) {
     const p=getTripPhotos(t.id)[0];
-    if(p&&photoBlobs.has(p.id)) return `<img data-photo-id="${escapeHTML(p.id)}" data-maxside="500" alt="${escapeHTML(t.title)}" />`;
+    if(p) return `<img data-photo-id="${escapeHTML(p.id)}" data-maxside="500" alt="${escapeHTML(t.title)}" />`;
     return `<div class="cover-placeholder">${t.type==='overseas'?'🌏':'🌿'}</div>`;
   }
   function tripCard(t) {
