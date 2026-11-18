@@ -980,16 +980,18 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
   $('togglePicker').addEventListener('click',startPicker);
   $('addTripTop').addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
-  document.querySelectorAll('.nav').forEach(n=>n.addEventListener('click',()=>{
-    if (n.dataset.homeScroll) {
+  document.addEventListener('click',event=>{
+    const n=event.target.closest?.('.nav');
+    if(!n)return;
+    if(n.dataset.homeScroll){
       setView('home');
       document.querySelectorAll('.nav').forEach(item=>item.classList.remove('active'));
       n.classList.add('active');
-      setTimeout(()=>document.getElementById(n.dataset.homeScroll)?.scrollIntoView({behavior:'smooth',block:'center'}),120);
-    } else if (n.dataset.view) {
+      setTimeout(()=>document.getElementById(n.dataset.homeScroll)?.scrollIntoView({behavior:'smooth',block:'center'}),140);
+    }else if(n.dataset.view){
       setView(n.dataset.view);
     }
-  }));
+  },true);
   $('mapTypeFilter').addEventListener('change',renderMap);$('mapYearFilter').addEventListener('change',renderMap);$('tripYearFilter').addEventListener('change',renderTrips);$('tripTypeFilter').addEventListener('change',renderTrips);
   $('homeFeaturePrev')?.addEventListener('click',()=>{const count=getHomeFeaturedTrips().length;if(count>1){homeFeatureIndex=(homeFeatureIndex+count-1)%count;renderHomeFeatured();}});
   $('homeFeatureNext')?.addEventListener('click',()=>{const count=getHomeFeaturedTrips().length;if(count>1){homeFeatureIndex=(homeFeatureIndex+1)%count;renderHomeFeatured();}});
