@@ -473,6 +473,7 @@
       else if (mapTrip) activeDetailTripId = mapTrip.dataset.openTrip;
       if (event.target.closest?.('[data-view="expenses"]')) setTimeout(() => renderExpenseDashboard().catch(showEnhancementError), 80);
       if (event.target.closest?.('#refreshExpenseDashboard')) renderExpenseDashboard().catch(showEnhancementError);
+      if (event.target.closest?.('#homeExpensesMore')) document.querySelector('[data-view="expenses"]')?.click();
       const removeButton = event.target.closest?.('[data-delete-expense]');
       if (removeButton) deleteExpense(removeButton).catch(showEnhancementError);
       if (event.target.closest?.('#clearCoverChoice')) setRepresentativePhoto(null).catch(showEnhancementError);
@@ -496,6 +497,7 @@
     });
 
     setTimeout(renderCardCovers, 500);
+    setTimeout(() => renderHomeRecentExpenses().catch(showEnhancementError), 650);
   }
 
   function showEnhancementError(error) {
@@ -743,6 +745,7 @@
       document.getElementById('expensePayer').value = '';
       document.getElementById('expenseMemo').value = '';
       await renderTripExpenseEditor();
+      await renderHomeRecentExpenses();
     } finally { button.disabled = false; }
   }
   async function deleteExpense(button) {
@@ -755,6 +758,7 @@
     await renderTripExpenseEditor();
     await renderTripDetailExpenses(activeDetailTripId);
     if (document.getElementById('view-expenses')?.classList.contains('active')) await renderExpenseDashboard();
+    await renderHomeRecentExpenses();
   }
   async function renderTripDetailExpenses(tripId) {
     const panel = document.getElementById('tripDetailExpensePanel');
@@ -790,6 +794,62 @@
     listHolder.innerHTML = activeExpenses.length
       ? activeExpenses.map(row => expenseEntryHTML(row, titles.get(String(row.journal_id)) || '')).join('')
       : '<div class="expense-empty">아직 등록된 여행 경비가 없습니다. 각 여행 기록의 수정 화면에서 경비를 추가할 수 있습니다.</div>';
+  }
+
+  async function renderHomeRecentExpenses() {
+    if (familyProfile?.role !== 'parent') return;
+    const holder = document.getElementById('homeRecentExpensesList');
+    if (!holder) return;
+    holder.innerHTML = '<div class="expense-empty">최근 여행 경비를 불러오고 있습니다.</div>';
+    const [{ data: expenses, error: expenseError }, { data: journals, error: journalError }, deletedIds] = await Promise.all([
+      client.from('journal_expenses').select('journal_id,category,amount,currency').order('expense_date', { ascending: false }),
+      client.from('journals').select('id,title,client_id,visit_date,location,trip_type'),
+      loadDeletedTripIds()
+    ]);
+    if (expenseError) throw new Error('최근 여행 경비를 불러오지 못했습니다: ' + expenseError.message);
+    if (journalError) throw new Error('최근 여행 정보를 연결하지 못했습니다: ' + journalError.message);
+
+    const activeJournalIds = new Set((journals || [])
+      .filter(row => !deletedIds.has(String(row.client_id)))
+      .map(row => String(row.id)));
+    const byJournal = new Map();
+    (expenses || []).forEach(row => {
+      const id = String(row.journal_id);
+      if (!activeJournalIds.has(id)) return;
+      if (!byJournal.has(id)) byJournal.set(id, []);
+      byJournal.get(id).push(row);
+    });
+    const recent = (journals || [])
+      .filter(row => !deletedIds.has(String(row.client_id)) && byJournal.has(String(row.id)))
+      .sort((a,b) => String(b.visit_date || '').localeCompare(String(a.visit_date || '')))
+      .slice(0,3);
+
+    if (!recent.length) {
+      holder.innerHTML = '<div class="home-region-empty">아직 기록된 여행 경비가 없어요.<br>여행 기록 수정 화면에서 경비를 추가할 수 있습니다.</div>';
+      return;
+    }
+
+    const formatAmount = (value, currency) => {
+      const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(Number(value || 0));
+      return currency === 'KRW' ? '₩' + number : number + ' ' + currency;
+    };
+    holder.innerHTML = recent.map(journal => {
+      const rows = byJournal.get(String(journal.id)) || [];
+      const totals = new Map();
+      const categories = [];
+      rows.forEach(row => {
+        const currency = row.currency || 'KRW';
+        totals.set(currency, (totals.get(currency) || 0) + Number(row.amount || 0));
+        if (row.category && !categories.includes(row.category)) categories.push(row.category);
+      });
+      const totalLabel = [...totals.entries()].map(([currency,amount]) => formatAmount(amount,currency)).join('<br>');
+      const categoryLabel = categories.slice(0,3).map(escapeHTML).join(' · ') || '지출 내역';
+      return `<article class="home-expense-item">
+        <div class="home-expense-thumb" aria-hidden="true">${journal.trip_type === 'overseas' ? '🌏' : '🌿'}</div>
+        <div class="home-expense-copy"><strong>${escapeHTML(journal.title || '가족 여행')}</strong><small>${escapeHTML(journal.visit_date || '')} · ${categoryLabel}</small></div>
+        <div class="home-expense-amount">${totalLabel}</div>
+      </article>`;
+    }).join('');
   }
 
   async function deleteTripFromCloud() {
