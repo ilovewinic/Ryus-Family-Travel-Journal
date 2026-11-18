@@ -126,6 +126,9 @@
       body: blob || undefined
     });
     if (!response.ok) {
+      // DELETE is idempotent: if the object is already missing, continue
+      // removing its Supabase metadata rather than leaving a ghost photo card.
+      if (method === 'DELETE' && response.status === 404) return true;
       const detail = await response.text().catch(() => '');
       throw new Error(`사진 서버 오류 (${response.status}): ${detail.slice(0, 200)}`);
     }
