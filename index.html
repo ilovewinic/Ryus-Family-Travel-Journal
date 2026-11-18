@@ -840,6 +840,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   async function init(){
     try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');trips=Array.isArray(saved.trips)?saved.trips:[];photos=Array.isArray(saved.photos)?saved.photos:[];}catch(e){console.warn(e);trips=[];photos=[];}
     await loadBlobURLs();initMap();renderAll();
+    window.refreshFamilyHomeRecentExpenses?.().catch(error => console.warn('[최근 여행 경비]', error));
     if(!window.L){$('mapEmpty').innerHTML='<div class="big">🗺️</div><b>지도를 불러오지 못했어요.</b><span>인터넷 연결을 확인한 뒤 새로고침해 주세요.</span>';}
   }
 window.__familyAuthReady.then(init);
