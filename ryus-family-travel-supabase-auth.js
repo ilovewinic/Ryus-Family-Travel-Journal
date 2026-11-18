@@ -560,6 +560,7 @@
       const { error } = await client.from('journals').update({ cover_photo_id: photoId || null }).eq('id', journal.id);
       if (error) throw new Error('대표사진을 가족 계정에 저장하지 못했습니다: ' + error.message);
     }
+    await window.refreshFamilyTravelHome?.();
     await renderRepresentativeChooser();
     renderCardCovers();
   }
