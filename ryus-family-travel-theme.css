@@ -1239,3 +1239,24 @@ body.auth-child #homeFeaturedSettings{display:none!important}
   .photo-manage-actions{gap:5px;padding:6px}
   .photo-manage-actions button{min-height:34px;font-size:9px;padding:7px 4px}
 }
+
+
+/* Ensure saved image tiles render as real photos, not faded placeholders. */
+.photo-manage-card,
+.photo-manage-preview,
+.photo-manage-preview img{
+  opacity:1!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+}
+.photo-manage-preview img{
+  background:transparent;
+  visibility:visible;
+}
+.photo-manage-preview img:not([src]){
+  display:none;
+}
+.photo-manage-delete:disabled{
+  opacity:.65;
+  cursor:wait;
+}
