@@ -348,6 +348,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let pendingFiles = [];
   let currentLightboxPhoto = null;
   let currentTripDetailId = null;
+  let homeFeatureIndex = 0;
   let mapMarkers = [];
 
   function toast(message) {
@@ -432,12 +433,97 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const years=[...new Set(trips.map(t=>(t.date||'').slice(0,4)).filter(Boolean))].sort().reverse();
     ['mapYearFilter','tripYearFilter'].forEach(id=>{const el=$(id);if(!el)return;const old=el.value||'all';el.innerHTML='<option value="all">전체 연도</option>'+years.map(y=>`<option value="${y}">${y}년</option>`).join('');el.value=years.includes(old)?old:'all';});
   }
+  function regionLabelForTrip(trip) {
+    if (trip.type === 'overseas') return String(trip.country || '해외').trim() || '해외';
+    const raw = String(trip.region || '').trim().replace(/\\s+/g, ' ');
+    if (!raw) return '지역 미입력';
+    if (/서울/.test(raw)) return '서울';
+    if (/인천/.test(raw)) return '인천';
+    if (/경기/.test(raw)) return '경기도';
+    if (/강원/.test(raw)) return '강원도';
+    if (/충청|충북|충남|대전|세종/.test(raw)) return '충청도';
+    if (/전라|전북|전남|광주/.test(raw)) return '전라도';
+    if (/경상|경북|경남|부산|대구|울산/.test(raw)) return '경상도';
+    if (/제주/.test(raw)) return '제주도';
+    return raw;
+  }
+  function renderRegionStats() {
+    const counts = new Map();
+    const seasonCounts = new Map([['봄',0],['여름',0],['가을',0],['겨울',0]]);
+    trips.forEach(trip => {
+      const label = regionLabelForTrip(trip);
+      counts.set(label, (counts.get(label) || 0) + 1);
+      if (trip.type !== 'overseas') {
+        const month = Number(String(trip.date || '').slice(5,7));
+        const season = month >= 3 && month <= 5 ? '봄' : month >= 6 && month <= 8 ? '여름' : month >= 9 && month <= 11 ? '가을' : month >= 1 && month <= 2 || month === 12 ? '겨울' : '';
+        if (season) seasonCounts.set(season, (seasonCounts.get(season) || 0) + 1);
+      }
+    });
+    const entries = [...counts.entries()].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0],'ko'));
+    const totalEl = $('homeRegionTotal');
+    const favoriteEl = $('homeRegionFavorite');
+    const bars = $('homeRegionBars');
+    if (totalEl) totalEl.textContent = String(entries.filter(([name]) => name !== '지역 미입력').length);
+    if (favoriteEl) favoriteEl.textContent = entries.length ? entries[0][0] : '-';
+    if (bars) {
+      if (!entries.length) {
+        bars.innerHTML = '<div class="home-region-empty">여행을 기록하면 다녀온 지역이 차곡차곡 쌓여요.</div>';
+      } else {
+        const max = Math.max(...entries.map(([,count]) => count),1);
+        bars.innerHTML = entries.slice(0,6).map(([name,count],index) => {
+          const width = Math.max(8,Math.round(count/max*100));
+          return `<div class="home-region-row"><div class="home-region-label"><span>${escapeHTML(name)}</span><b>${count}회</b></div><div class="home-region-track"><i style="width:${width}%" data-tone="${index%4}"></i></div></div>`;
+        }).join('');
+      }
+    }
+    const seasonEl = $('homeSeasonStats');
+    if (seasonEl) seasonEl.innerHTML = [...seasonCounts.entries()].map(([name,count]) => `<span>${name} ${count}</span>`).join('');
+  }
+  function renderHomeFeatured() {
+    const image = $('homeFeatureImage');
+    const title = $('homeFeatureTitle');
+    const meta = $('homeFeatureMeta');
+    const place = $('homeFeaturePlace');
+    const dots = $('homeFeatureDots');
+    if (!image || !title || !meta || !place || !dots) return;
+    const candidates = [...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+    if (!candidates.length) {
+      image.removeAttribute('src');
+      image.style.opacity = '0';
+      title.textContent = '함께한 여행, 오래도록 기억해요 ♡';
+      meta.textContent = '여행을 기록하면 이곳에 대표사진이 펼쳐집니다.';
+      place.textContent = '🌼 첫 가족 여행을 기록해 보세요!';
+      dots.innerHTML = '';
+      return;
+    }
+    homeFeatureIndex = ((homeFeatureIndex % candidates.length) + candidates.length) % candidates.length;
+    const trip = candidates[homeFeatureIndex];
+    const tripPhotos = getTripPhotos(trip.id);
+    const photo = tripPhotos.find(p => String(p.id) === String(trip.coverPhotoId)) || tripPhotos[0];
+    const imageUrl = photo ? blobURL(photo.id) : '';
+    if (imageUrl) {
+      image.src = imageUrl;
+      image.style.opacity = '1';
+    } else {
+      image.removeAttribute('src');
+      image.style.opacity = '0';
+    }
+    title.textContent = trip.title || '우리 가족의 여행';
+    meta.textContent = `${dateLabel(trip.date)} · ${trip.type === 'overseas' ? (trip.country || '해외') : (trip.region || trip.place || '국내 여행')}`;
+    place.textContent = `📍 ${trip.place || '여행지'} · 가족의 소중한 추억`;
+    dots.innerHTML = candidates.map((_,index) => `<button type="button" class="${index===homeFeatureIndex?'active':''}" data-home-feature-dot="${index}" aria-label="여행 사진 ${index+1} 보기"></button>`).join('');
+    dots.querySelectorAll('[data-home-feature-dot]').forEach(button => button.addEventListener('click',() => {
+      homeFeatureIndex = Number(button.dataset.homeFeatureDot);
+      renderHomeFeatured();
+    }));
+  }
   function renderStats() {
-    const groups=getLocationGroups('all','all');
-    $('statTrips').textContent=trips.length;
-    $('statPlaces').textContent=groups.length;
-    $('statRegions').textContent=new Set(trips.map(t=>t.region||t.country).filter(Boolean)).size;
-    $('statPhotos').textContent=photos.length;
+    const regions = new Set(trips.map(regionLabelForTrip).filter(name => name && name !== '지역 미입력'));
+    $('statTrips').textContent = trips.length;
+    $('statPlaces').textContent = regions.size;
+    $('statRegions').textContent = trips.filter(t => t.type !== 'overseas').length;
+    $('statPhotos').textContent = trips.filter(t => t.type === 'overseas').length;
+    renderRegionStats();
   }
   function coverHTML(t) {
     const p=getTripPhotos(t.id)[0];
@@ -548,7 +634,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       el.addEventListener('click', () => openLightbox(el.dataset.openPhoto))
     );
   }
-  function renderAll() {renderStats();refreshMapFilters();renderMap();renderTrips();renderPhotos();}
+  function renderAll() {renderStats();refreshMapFilters();renderMap();renderTrips();renderHomeFeatured();renderPhotos();}
   function setView(view) {
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     $('view-'+view).classList.add('active');
@@ -721,6 +807,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('addTripTop').addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
   document.querySelectorAll('.nav').forEach(n=>n.addEventListener('click',()=>setView(n.dataset.view)));
   $('mapTypeFilter').addEventListener('change',renderMap);$('mapYearFilter').addEventListener('change',renderMap);$('tripYearFilter').addEventListener('change',renderTrips);$('tripTypeFilter').addEventListener('change',renderTrips);
+  $('homeFeaturePrev')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+count-1)%count;renderHomeFeatured();}});
+  $('homeFeatureNext')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+1)%count;renderHomeFeatured();}});
   async function init(){
     try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');trips=Array.isArray(saved.trips)?saved.trips:[];photos=Array.isArray(saved.photos)?saved.photos:[];}catch(e){console.warn(e);trips=[];photos=[];}
     await loadBlobURLs();initMap();renderAll();
