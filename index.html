@@ -163,7 +163,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 }
 
 </style>
-  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=mobile-20261118-3" />
+  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=mobile-20261118-4" />
 </head>
 <body>
 <div class="app">
@@ -596,6 +596,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       homeFeatureTripId = null;
       image.removeAttribute('src');
       image.style.opacity = '0';
+      image.parentElement?.style.removeProperty('--feature-photo-fill');
       title.textContent = '함께한 여행, 오래도록 기억해요 ♡';
       meta.textContent = '여행을 기록하면 이곳에 대표사진이 펼쳐집니다.';
       place.textContent = '🌼 첫 가족 여행을 기록해 보세요!';
