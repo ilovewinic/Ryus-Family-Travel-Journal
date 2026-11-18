@@ -241,8 +241,8 @@
     if (!client || !familyProfile) return { places: [], stays: [] };
     const [{ data: journals, error: journalError }, { data: places, error: placeError }, { data: stays, error: stayError }] = await Promise.all([
       client.from('journals').select('id,client_id'),
-      client.from('journal_places').select('client_id,journal_id,name,category,visit_date,visit_time,sequence,address,region,latitude,longitude,memo,rating,is_favorite,visit_status').order('visit_date', { ascending: true }).order('sequence', { ascending: true }),
-      client.from('journal_stays').select('client_id,journal_id,name,check_in,check_in_time,check_out,check_out_time,address,region,latitude,longitude,memo,rating').order('check_in', { ascending: true })
+      client.from('journal_places').select('client_id,journal_id,name,category,visit_date,visit_time,sequence,address,region,latitude,longitude,memo,rating,is_favorite,visit_status,parent_place_client_id,cuisine_type,meal_type,ordered_menu,family_feedback,dad_rating,suho_rating,hyeonah_rating,revisit_recommendation').order('visit_date', { ascending: true }).order('sequence', { ascending: true }),
+      client.from('journal_stays').select('client_id,journal_id,name,check_in,check_in_time,check_out,check_out_time,address,region,latitude,longitude,memo,rating,stay_type,related_place_client_id').order('check_in', { ascending: true })
     ]);
     if (journalError) throw new Error('여행 연결 정보를 읽지 못했습니다: ' + journalError.message);
     if (placeError) throw new Error('방문 장소를 불러오지 못했습니다: ' + placeError.message);
@@ -257,7 +257,15 @@
         region: row.region || '', lat: row.latitude == null ? '' : Number(row.latitude),
         lng: row.longitude == null ? '' : Number(row.longitude), memo: row.memo || '',
         rating: row.rating == null ? '' : Number(row.rating), favorite: !!row.is_favorite,
-        status: row.visit_status || 'visited'
+        status: row.visit_status || 'visited',
+        parentPlaceClientId: row.parent_place_client_id || '',
+        cuisineType: row.cuisine_type || '', mealType: row.meal_type || '',
+        orderedMenu: Array.isArray(row.ordered_menu) ? row.ordered_menu : [],
+        familyFeedback: row.family_feedback || '',
+        dadRating: row.dad_rating == null ? '' : Number(row.dad_rating),
+        suhoRating: row.suho_rating == null ? '' : Number(row.suho_rating),
+        hyeonahRating: row.hyeonah_rating == null ? '' : Number(row.hyeonah_rating),
+        revisitRecommendation: !!row.revisit_recommendation
       })),
       stays: (stays || []).filter(row => idMap.has(String(row.journal_id))).map(row => ({
         clientId: String(row.client_id), tripId: idMap.get(String(row.journal_id)),
@@ -266,7 +274,8 @@
         address: row.address || '', region: row.region || '',
         lat: row.latitude == null ? '' : Number(row.latitude),
         lng: row.longitude == null ? '' : Number(row.longitude),
-        memo: row.memo || '', rating: row.rating == null ? '' : Number(row.rating)
+        memo: row.memo || '', rating: row.rating == null ? '' : Number(row.rating),
+        stayType: row.stay_type || '', relatedPlaceClientId: row.related_place_client_id || ''
       }))
     };
   };
@@ -309,11 +318,21 @@
           ...common, category: row.category || 'attraction',
           visit_date: row.visitDate || null, visit_time: row.visitTime || null,
           sequence: Number(row.sequence ?? index), is_favorite: !!row.favorite,
-          visit_status: row.status === 'planned' ? 'planned' : 'visited'
+          visit_status: row.status === 'planned' ? 'planned' : 'visited',
+          parent_place_client_id: row.parentPlaceClientId || null,
+          cuisine_type: row.cuisineType || null, meal_type: row.mealType || null,
+          ordered_menu: Array.isArray(row.orderedMenu) ? row.orderedMenu : [],
+          family_feedback: row.familyFeedback || null,
+          dad_rating: row.dadRating === '' || row.dadRating == null ? null : Number(row.dadRating),
+          suho_rating: row.suhoRating === '' || row.suhoRating == null ? null : Number(row.suhoRating),
+          hyeonah_rating: row.hyeonahRating === '' || row.hyeonahRating == null ? null : Number(row.hyeonahRating),
+          revisit_recommendation: !!row.revisitRecommendation
         };
         return {
           ...common, check_in: row.checkIn, check_in_time: row.checkInTime || null,
-          check_out: row.checkOut, check_out_time: row.checkOutTime || null
+          check_out: row.checkOut, check_out_time: row.checkOutTime || null,
+          stay_type: row.stayType || null,
+          related_place_client_id: row.relatedPlaceClientId || null
         };
       });
 
