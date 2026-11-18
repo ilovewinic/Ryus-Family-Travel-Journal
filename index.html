@@ -186,7 +186,9 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
     </aside>
     <main>
       <section id="view-home" class="view active">
-                <section class="hero-cover home-featured" id="homeFeaturedBanner" aria-label="우리 가족의 최근 여행 사진">
+                        <div class="home-layout-grid">
+          <div class="home-main-column">
+            <section class="hero-cover home-featured" id="homeFeaturedBanner" aria-label="우리 가족의 최근 여행 사진">
           <div class="home-feature-photo"><img id="homeFeatureImage" alt="가족의 대표 여행 사진" /></div>
           <div class="home-feature-shade"></div>
           <div class="home-feature-copy">
@@ -194,20 +196,20 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
             <h2 id="homeFeatureTitle">함께한 여행, 오래도록 기억해요 ♡</h2>
             <p id="homeFeatureMeta">가족의 소중한 순간을 한곳에 모아요.</p>
             <span class="home-feature-place" id="homeFeaturePlace">🌼 다음 여행도 기대돼요!</span>
+            <button type="button" class="home-feature-open" id="homeFeatureOpen">자세히 보기 <span>›</span></button>
           </div>
           <button type="button" class="home-feature-arrow prev" id="homeFeaturePrev" aria-label="이전 여행">‹</button>
           <button type="button" class="home-feature-arrow next" id="homeFeatureNext" aria-label="다음 여행">›</button>
           <div class="home-feature-dots" id="homeFeatureDots"></div>
-        </section>        <div class="home-layout-grid">
-          <div class="home-main-column">
-            <div class="stats home-stats">
+        </section>
+            <div class="stats home-stats" aria-hidden="true" style="display:none">
               <div class="stat"><div class="stat-icon">🧳</div><div><strong id="statTrips">0</strong><span>여행 기록</span></div></div>
               <div class="stat"><div class="stat-icon">📍</div><div><strong id="statPlaces">0</strong><span>방문 지역</span></div></div>
               <div class="stat"><div class="stat-icon">🏡</div><div><strong id="statRegions">0</strong><span>국내 여행</span></div></div>
               <div class="stat"><div class="stat-icon">🌏</div><div><strong id="statPhotos">0</strong><span>해외 여행</span></div></div>
             </div>
             <section class="panel trip-panel home-trip-panel">
-              <div class="section-head"><div><h3>우리 가족의 여행 기록</h3><p>사진으로 다시 만나는 소중한 순간들</p></div><button class="secondary" id="allTripsBtn">전체 보기 →</button></div>
+              <div class="section-head"><div><h3>우리 가족의 여행 기록</h3><p>함께 다녀온 소중한 순간을 다시 만나요</p></div><button class="secondary" id="allTripsBtn">전체 보기 →</button></div>
               <div id="recentTrips" class="trip-grid"></div>
             </section>
             <section class="panel side-panel home-print-panel"><h3>💛 인화하고 싶은 사진</h3><p class="hint">오래 간직하고 싶은 순간을 골라두세요.</p><div id="printQuick"></div><button class="secondary" style="width:100%;margin-top:8px" id="goPrint">인화용 사진 모아보기 →</button></section>
