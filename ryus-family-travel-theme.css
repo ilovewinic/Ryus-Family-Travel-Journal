@@ -1,0 +1,144 @@
+/* Ryus Family Travel Journal — warm kawaii scrapbook theme */
+:root{
+  --ink:#5d4943;--muted:#9b8279;--cream:#fff8ef;--paper:#fffdf9;--line:#f0dfd3;
+  --blue:#91c8e5;--blue-soft:#edf7fc;--coral:#f38f96;--coral-soft:#fff0f0;
+  --yellow:#f5d17f;--yellow-soft:#fff8e4;--mint:#a9d8c2;--mint-soft:#eff9f2;
+  --lav:#c7b5e4;--shadow:0 12px 30px rgba(128,91,79,.09);--radius:23px;
+}
+html{background:#fff8ef}
+body{
+  background:linear-gradient(145deg,#fffaf3 0%,#fff6f0 48%,#f6fbf6 100%)!important;
+  color:var(--ink)!important;
+  font-family:ui-rounded,"Nunito Sans",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;
+  position:relative;
+}
+body:before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.58;
+  background-image:
+    radial-gradient(ellipse at 7% 14%,rgba(255,213,204,.42) 0 8%,transparent 23%),
+    radial-gradient(ellipse at 92% 11%,rgba(211,235,247,.52) 0 9%,transparent 24%),
+    radial-gradient(ellipse at 85% 88%,rgba(224,242,222,.46) 0 8%,transparent 23%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='170' viewBox='0 0 190 170'%3E%3Cg fill='none' stroke='%23e9cfc1' stroke-width='1.5' opacity='.7'%3E%3Cpath d='M24 32c-8-12-25-2-18 9 5 7 17 5 18-9zm0 0c8-12 25-2 18 9-5 7-17 5-18-9z'/%3E%3Cpath d='M145 118l3 8 8 3-8 3-3 8-3-8-8-3 8-3z'/%3E%3Cpath d='M81 20c-7-8-22-3-22 7 0 8 8 11 22 11 13 0 21-4 21-11 0-10-15-15-22-7z'/%3E%3C/g%3E%3Cg fill='%23f0c7bd' opacity='.65'%3E%3Ccircle cx='119' cy='54' r='2.4'/%3E%3Ccircle cx='34' cy='132' r='2'/%3E%3Ccircle cx='171' cy='26' r='2.2'/%3E%3C/g%3E%3C/svg%3E");
+  background-size:auto,auto,auto,190px 170px;
+}
+.app{max-width:1480px;padding-top:25px}
+.topbar{margin-bottom:24px}
+.brand{gap:13px}
+.brand-mark{
+  width:52px;height:52px;border-radius:19px;background:linear-gradient(145deg,#ffe1a4,#ffc5bd 62%,#f6d5ec);
+  box-shadow:0 7px 18px rgba(226,158,130,.2);font-size:26px;border:2px solid rgba(255,255,255,.85)
+}
+.brand h1{color:#684f47;font-size:22px;letter-spacing:-.8px}
+.brand small{color:#ad9186;font-size:12px}
+.soft-pill{border-color:#f1dfd4;background:#fffdf9;color:#9b8178}
+.profile-dot{background:#eff8ef;border:1px solid #dcefe0}
+.layout{gap:22px}
+.sidebar{
+  background:rgba(255,253,249,.88);border:1px solid #f0dfd3;border-radius:25px;
+  box-shadow:0 10px 30px rgba(146,112,94,.07);backdrop-filter:blur(8px)
+}
+.side-label{color:#c19c90;letter-spacing:1.3px}
+.nav{color:#826b63;border-radius:15px;transition:background .18s,transform .18s}
+.nav:hover{background:#fff2eb;transform:translateX(2px)}
+.nav.active{background:linear-gradient(100deg,#ffe6e5,#fff0dc);color:#c66f72;box-shadow:inset 0 0 0 1px #f8d9d2}
+.side-note{background:linear-gradient(140deg,#fff6dc,#f0f9f1);border:1px solid #f3e6c8;color:#9a8060;border-radius:17px}
+.side-note b{color:#8e7056}
+.hello h2,.toolbar h2{color:#664f48}
+.hello p,.toolbar p{color:#a38e84}
+.primary{background:linear-gradient(115deg,#f28e97,#f5a18e);box-shadow:0 7px 16px rgba(225,132,137,.22)}
+.primary:hover{filter:saturate(1.04) brightness(1.02)}
+.secondary{border-color:#efdfd6;background:#fffdf9;color:#8a7168}
+.secondary:hover{background:#fff3ed;border-color:#f1cfc6}
+.hero-cover{
+  min-height:240px;border:1px solid rgba(255,255,255,.95);border-radius:29px;
+  background:
+    radial-gradient(circle at 13% 14%,rgba(255,255,255,.9) 0 3px,transparent 4px),
+    radial-gradient(circle at 64% 28%,rgba(255,255,255,.8) 0 2px,transparent 3px),
+    linear-gradient(112deg,#fff0dc 0%,#ffe9e8 47%,#e8f5f8 100%);
+  box-shadow:0 15px 35px rgba(194,145,127,.13)
+}
+.hero-cover:before,.hero-cover:after{background:rgba(255,255,255,.38)}
+.hero-kicker{background:rgba(255,255,255,.72);border-color:#fff;color:#b78379}
+.hero-cover h2{color:#6b5149}
+.hero-cover h2 em{color:#df8187}
+.hero-cover p{color:#9d8177}
+.hero-art-note{border-color:#fff0e8;color:#a17e72;background:rgba(255,255,255,.86)}
+.hero-sticker{filter:drop-shadow(0 4px 6px rgba(155,116,99,.14))}
+.stats{gap:13px}
+.stat{border:1px solid #f0e2d8;border-radius:20px;background:rgba(255,253,249,.94);box-shadow:0 7px 20px rgba(145,110,94,.055)}
+.stat strong{color:#6e554c}
+.stat span{color:#a48e84}
+.stat-icon{border-radius:15px}
+.panel{border-color:#f0e1d7;background:rgba(255,253,249,.96);box-shadow:var(--shadow);border-radius:24px}
+.section-head h3{color:#6a5149}
+.section-head p{color:#a48e84}
+.map-wrap{background:#eaf4e9;border:1px solid #e7eee2;border-radius:20px}
+.map-empty{border-color:#fff3e8;color:#6d574f}
+.map-foot{color:#b39e94}
+.content-grid{gap:18px}
+.trip-card,.photo-card{border-color:#f1e1d7;border-radius:20px;box-shadow:0 5px 16px rgba(130,91,79,.045)}
+.trip-card:hover{box-shadow:0 12px 24px rgba(130,91,79,.12)}
+.trip-cover{background:linear-gradient(135deg,#f9ead7,#e7f3ef)}
+.trip-body h4,.photo-info b{color:#6a534b}
+.trip-meta,.photo-info span{color:#a18c82}
+.trip-snippet{color:#9a8379}
+.empty-card,.empty-state{background:rgba(255,253,249,.8);border-color:#eadbd1;color:#a18b81}
+.side-panel h3{color:#6c534a}
+.side-panel .hint{color:#a38e84}
+.quick-row{border-color:#f2e8e1}
+.quick-emoji{background:#edf6f7}
+.locked-box{background:linear-gradient(135deg,#fff8e8,#fff2ef);border-color:#f1dfc9;color:#9a8060}
+.locked-box b{color:#8d7051}
+.photo-card{overflow:hidden}
+.photo-image{background:#f3eee9}
+.photo-info{background:#fffdf9}
+.photo-actions{background:#fffdf9}
+.tiny-btn{background:#fff0ef;color:#c46d70}
+.tiny-btn.neutral{background:#f5f3ef;color:#8d7e77}
+.print-head{background:linear-gradient(105deg,#fff5dc,#fff0ee);border-color:#f0e2d2;border-radius:20px}
+.toolbar .soft-pill{background:#fffdf9}
+.modal{border:1px solid #f1e1d8;box-shadow:0 25px 75px rgba(96,68,60,.2)}
+.modal-head{background:#fffaf5;border-color:#f1e5dd}
+.modal-head h3{color:#70564c}
+.close{background:#fff0eb;color:#a77970}
+.field label{color:#8b7168}
+.field input,.field select,.field textarea{border-color:#ecded5;border-radius:13px;background:#fffefa}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#e8a8a6;box-shadow:0 0 0 3px #fbe9e6}
+.modal-actions{background:#fffaf6;border-color:#f1e5dd}
+.toast{background:#72584f;box-shadow:0 8px 24px rgba(85,62,56,.2)}
+.preview-banner{background:#fff7df;border-color:#f0e2c2;color:#927852;border-radius:16px}
+.footer{color:#b49e93}
+#familyAuthGate{
+  background:
+    radial-gradient(ellipse at 10% 20%,rgba(255,220,211,.65),transparent 30%),
+    radial-gradient(ellipse at 90% 80%,rgba(213,239,224,.7),transparent 30%),
+    linear-gradient(135deg,#fff6e8,#fff0ed 55%,#eef8fb)!important
+}
+.auth-card{border-color:#f1dfd4!important;border-radius:28px!important;box-shadow:0 20px 55px rgba(147,104,88,.15)!important}
+.auth-logo{background:linear-gradient(135deg,#ffe0a2,#ffc5bd)!important}
+.auth-card h2{color:#684f47}
+.auth-sub{color:#a1877c}
+.auth-field input{border-color:#ecddd4!important;border-radius:13px!important;background:#fffefa}
+.auth-submit{background:linear-gradient(115deg,#f28e97,#f5a18e)!important}
+.app .family-extra-panel{
+  border-color:#f0dfd4;background:linear-gradient(135deg,#fffaf2,#f4faf7);
+  border-radius:20px;box-shadow:0 6px 18px rgba(133,99,82,.05)
+}
+.app .family-extra-panel h4{color:#70554b}
+.app .family-extra-help{color:#a18b80}
+.app .expense-total-chip{background:#fff0e6;color:#9a7153;border:1px solid #f5e0d2;border-radius:999px}
+.app .expense-entry{border-color:#f0e2d8;background:#fffefa;border-radius:14px}
+.app .expense-entry strong{color:#6a534b}
+.app .expense-entry small{color:#a38e84}
+.app .expense-entry .expense-value{color:#8c6b5f}
+.app .cover-choice{border-color:#eee0d7;background:#fffefa}
+.app .cover-choice.selected{border-color:#e99598;background:#fff1ef}
+.app .expense-empty{border-color:#eedfd5;color:#a48e84;background:#fffdf9}
+@media(max-width:720px){
+  .app{padding:13px 12px 28px}
+  .sidebar{background:rgba(255,253,249,.96);border-color:#f0dfd3;box-shadow:0 5px 18px rgba(145,110,94,.07)}
+  .nav.active{box-shadow:inset 0 0 0 1px #f8d9d2}
+  .hero-cover{border-color:#fff;border-radius:23px}
+  .stat{border-radius:16px}
+  .map-panel,.trip-panel,.side-panel{border-color:#f0e1d7}
+}
