@@ -164,6 +164,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 
 </style>
   <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=mobile-20261118-4" />
+  <link rel="stylesheet" href="./ryus-family-travel-home-stack.css?v=20261118-stack1" />
 </head>
 <body>
 <div class="app">
@@ -335,7 +336,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
     <div class="modal-head">
       <div>
         <h3 id="homeFeaturedSettingsTitle">⭐ 첫 화면 대표 여행 설정</h3>
-        <p class="trip-detail-subtitle">가족 메인 화면에 보여줄 여행을 1~5개 선택하세요.</p>
+        <p class="trip-detail-subtitle">여행을 최대 5개 선택하세요. 대표사진을 겹쳐 보여주고 약 5초마다 자동으로 넘깁니다.</p>
       </div>
       <button class="close" type="button" id="closeHomeFeaturedSettings" aria-label="닫기">×</button>
     </div>
@@ -390,6 +391,12 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let lightboxOpenToken = 0;
 
   function pushOverlayHistory(type) {
+    const current = history.state && typeof history.state === 'object' ? history.state : {};
+    // Keep an in-app base entry beneath every modal so a phone Back action
+    // closes the overlay before leaving the family journal for the prior site.
+    if (!current[OVERLAY_HISTORY_KEY]) {
+      history.replaceState({ ...current, [OVERLAY_HISTORY_KEY]: 'app' }, '', location.href);
+    }
     const previous = history.state && typeof history.state === 'object' ? history.state : {};
     history.pushState({ ...previous, [OVERLAY_HISTORY_KEY]: type }, '', location.href);
   }
@@ -1211,5 +1218,6 @@ window.__familyAuthReady.then(init);
 })();
 </script>
 <script src="./ryus-family-travel-itinerary.js"></script>
+<script src="./ryus-family-travel-home-stack.js?v=20261118-stack1"></script>
 </body>
 </html>
