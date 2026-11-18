@@ -201,7 +201,7 @@
   window.saveFamilyHomeFeaturedIds = async function(values) {
     if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 첫 화면 대표 여행을 변경할 수 있습니다.');
     const ids = cleanHomeFeaturedIds(values);
-    if (ids.length < 1 || ids.length > 5) throw new Error('첫 화면에 표시할 여행을 1개에서 5개까지 선택해 주세요.');
+    if (ids.length > 5) throw new Error('첫 화면에는 최대 5개까지 선택할 수 있습니다.');
     const { error } = await client
       .from('family_home_settings')
       .upsert({
