@@ -607,22 +607,8 @@
     const detailModal = $('tripDetailModal');
     if (detailModal) new MutationObserver(() => {
       if (detailModal.classList.contains('open')) {
-        const trip = allTrips().find(item => item.title === $('tripDetailTitle')?.textContent) || null;
-        // The existing detail view exposes its current trip through the detail edit button's form id after opening.
-        const current = $('editTripId')?.value;
-        const clicked = document.querySelector('[data-trip-card].last-opened');
-        let id = current && tripById(current) ? current : '';
-        if (!id && clicked) id = clicked.dataset.tripCard;
-        if (!id) {
-          const subtitle = $('tripDetailSubtitle')?.textContent || '';
-          const candidates = allTrips().filter(item => item.title === $('tripDetailTitle')?.textContent && subtitle.includes(dateText(item.date)));
-          if (candidates.length === 1) id = candidates[0].id;
-        }
-        if (!id) {
-          const last = window.__familyTravelLastOpenedTripId;
-          if (last) id = last;
-        }
-        if (id) {
+        const id = window.__familyTravelLastOpenedTripId || '';
+        if (id && tripById(id)) {
           detailModal.dataset.extraTripId = id;
           setTimeout(renderTripDetailExtras, 80);
         }
