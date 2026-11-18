@@ -953,3 +953,110 @@ body.auth-child #homeFeaturedSettings{display:none!important}
 .family-rating-grid label{display:flex;align-items:center;gap:5px;color:#8a95a2;font-size:10px}
 .family-rating-grid select{min-width:0;padding:7px;border:1px solid #eee5dc;border-radius:8px;background:#fff;color:#bd896c;font-size:10px}
 @media(max-width:600px){.place-trip-group{padding:13px}.place-tree-children{margin-left:27px;padding-left:9px}.place-trip-heading{align-items:flex-start}.family-rating-grid{gap:4px}.family-rating-grid label{flex-direction:column;align-items:flex-start}}
+
+
+/* Final mobile layout and artwork safeguards */
+@media (max-width:720px) {
+  .family-masthead {
+    height:148px!important;
+    min-height:148px!important;
+    background-size:100% auto!important;
+    background-position:center center!important;
+    background-repeat:no-repeat!important;
+  }
+  .family-masthead .brand {
+    max-width:calc(100% - 105px)!important;
+    min-width:0!important;
+  }
+  .family-masthead .brand h1 {
+    font-size:clamp(14px,4.3vw,17px)!important;
+    white-space:nowrap!important;
+  }
+  .family-travel-sign {
+    top:12px!important;
+    bottom:auto!important;
+    right:12px!important;
+    padding:6px 10px!important;
+    font-size:10px!important;
+    transform:rotate(3deg);
+  }
+  .home-featured {
+    height:226px!important;
+    min-height:226px!important;
+  }
+  .home-feature-photo img {
+    width:100%!important;
+    height:100%!important;
+    object-fit:cover!important;
+    object-position:center center!important;
+  }
+  .home-feature-copy {
+    left:14px!important;
+    right:43px!important;
+    bottom:23px!important;
+    width:auto!important;
+    max-width:none!important;
+  }
+  .home-featured h2 {
+    font-size:clamp(17px,5.4vw,21px)!important;
+    line-height:1.25!important;
+  }
+  .home-featured p {
+    font-size:10px!important;
+    line-height:1.4!important;
+  }
+  .home-feature-actions {
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:5px!important;
+    max-width:100%!important;
+  }
+  .home-feature-open,.home-feature-settings {
+    padding:6px 8px!important;
+    font-size:9px!important;
+  }
+  .home-trip-panel .trip-cover {
+    height:clamp(100px,28vw,120px)!important;
+  }
+  .home-trip-panel .trip-cover img,.trip-cover img {
+    max-width:100%!important;
+    max-height:100%!important;
+    object-fit:contain!important;
+  }
+  .photo-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+  }
+  .photo-image {
+    height:auto!important;
+    aspect-ratio:4 / 3;
+    min-height:92px;
+  }
+}
+@media (max-width:390px) {
+  .family-masthead {
+    height:140px!important;
+    min-height:140px!important;
+  }
+  .family-masthead .brand {
+    max-width:calc(100% - 92px)!important;
+  }
+  .family-masthead .brand small {
+    font-size:8px!important;
+  }
+  .family-travel-sign {
+    right:8px!important;
+    padding:5px 8px!important;
+    font-size:9px!important;
+  }
+  .home-featured {
+    height:218px!important;
+    min-height:218px!important;
+  }
+  .home-feature-copy {
+    right:37px!important;
+    bottom:19px!important;
+  }
+  .home-featured h2 {font-size:18px!important}
+  .home-feature-settings {display:none!important}
+}
