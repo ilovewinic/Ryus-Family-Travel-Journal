@@ -386,6 +386,54 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let homeFeaturedSelection = [];
   let homeFeaturedSelectionLoaded = false;
   let mapMarkers = [];
+  const OVERLAY_HISTORY_KEY = '__ryusFamilyJournalOverlay';
+  let ignoreOverlayPopstate = false;
+  let lightboxOpenToken = 0;
+
+  function pushOverlayHistory(type) {
+    const previous = history.state && typeof history.state === 'object' ? history.state : {};
+    history.pushState({ ...previous, [OVERLAY_HISTORY_KEY]: type }, '', location.href);
+  }
+  function closeLightboxVisual() {
+    lightboxOpenToken += 1;
+    $('lightbox').classList.remove('open');
+    $('lightboxImage').src = '';
+    currentLightboxPhoto = null;
+  }
+  function closeLightbox() {
+    const ownsHistory = history.state?.[OVERLAY_HISTORY_KEY] === 'photo';
+    closeLightboxVisual();
+    if (ownsHistory) {
+      ignoreOverlayPopstate = true;
+      history.back();
+    }
+  }
+  function closeTripDetailVisual() {
+    $('tripDetailModal').classList.remove('open');
+    currentTripDetailId = null;
+  }
+  function closeTripDetail() {
+    const ownsHistory = history.state?.[OVERLAY_HISTORY_KEY] === 'trip-detail';
+    closeTripDetailVisual();
+    if (ownsHistory) {
+      ignoreOverlayPopstate = true;
+      history.back();
+    }
+  }
+  window.addEventListener('popstate', () => {
+    if (ignoreOverlayPopstate) {
+      ignoreOverlayPopstate = false;
+      return;
+    }
+    // Close only the topmost visible layer. A second Back closes the layer beneath it.
+    if ($('lightbox')?.classList.contains('open')) {
+      closeLightboxVisual();
+      return;
+    }
+    if ($('tripDetailModal')?.classList.contains('open')) {
+      closeTripDetailVisual();
+    }
+  });
 
   function toast(message) {
     const el = $('toast'); el.textContent = message; el.classList.add('show');
@@ -884,7 +932,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   const t = getTrip(id);
   if (!t) return;
 
+  const detailWasAlreadyOpen = $('tripDetailModal').classList.contains('open');
   currentTripDetailId = id;
+  if (!detailWasAlreadyOpen) pushOverlayHistory('trip-detail');
 
   $('tripDetailTitle').textContent = t.title || '여행 기록';
   $('tripDetailSubtitle').textContent =
@@ -929,10 +979,32 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     });
   });
 }
-  async function openLightbox(id){const p=getPhoto(id);if(!p||!photoBlobs.has(id))return;currentLightboxPhoto=p;$('deletePhotoBtn').style.display =
-  window.isFamilyPhotoParent?.() && window.deleteFamilyPhotoFromCloud
-    ? 'inline-flex'
-    : 'none';const t=getTrip(p.tripId);$('lightboxTitle').textContent=`${t?.title||'여행 사진'} · ${p.name}`;$('lightboxImage').src=await resizedURL(id,2000);$('lightbox').classList.add('open');}
+  async function openLightbox(id) {
+    const p = getPhoto(String(id));
+    if (!p) return;
+    const token = ++lightboxOpenToken;
+    currentLightboxPhoto = p;
+    $('deletePhotoBtn').style.display =
+      window.isFamilyPhotoParent?.() && window.deleteFamilyPhotoFromCloud
+        ? 'inline-flex'
+        : 'none';
+    const t = getTrip(p.tripId);
+    $('lightboxTitle').textContent = `${t?.title || '여행 사진'} · ${p.name}`;
+    $('lightboxImage').src = '';
+    $('lightboxImage').alt = p.name || '여행 사진';
+    $('lightbox').classList.add('open');
+    pushOverlayHistory('photo');
+
+    try {
+      const url = await resizedURL(String(id), 2000);
+      if (token !== lightboxOpenToken || !currentLightboxPhoto || String(currentLightboxPhoto.id) !== String(id)) return;
+      if (url) $('lightboxImage').src = url;
+      else toast('사진 파일을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+    } catch (error) {
+      console.warn('[사진 크게 보기]', error);
+      if (token === lightboxOpenToken) toast('사진을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
   $('downloadOriginal').addEventListener('click',()=>{if(!currentLightboxPhoto)return;const p=currentLightboxPhoto;const url=blobURL(p.id);const a=document.createElement('a');a.href=url;a.download=p.name||'family-trip-photo';document.body.appendChild(a);a.click();a.remove();toast('원본 사진 다운로드를 시작했어요.');});
 
     $('deletePhotoBtn').addEventListener('click', async () => {
@@ -968,9 +1040,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
 
       photos = photos.filter(item => item.id !== photo.id);
 
-      $('lightbox').classList.remove('open');
-      $('lightboxImage').src = '';
-      currentLightboxPhoto = null;
+      closeLightbox();
 
       persist();
       renderAll();
@@ -982,11 +1052,6 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       button.disabled = false;
     }
   });
-
-  function closeTripDetail() {
-    $('tripDetailModal').classList.remove('open');
-    currentTripDetailId = null;
-  }
 
   $('closeTripDetail').addEventListener('click', closeTripDetail);
   $('closeTripDetailBottom').addEventListener('click', closeTripDetail);
@@ -1007,7 +1072,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     closeTripDetail();
     openModal(trip);
   });
- $('closeLightbox').addEventListener('click',()=>{$('lightbox').classList.remove('open');$('lightboxImage').src='';currentLightboxPhoto=null;});$('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))$('closeLightbox').click();});
+ $('closeLightbox').addEventListener('click', closeLightbox);
+ $('lightbox').addEventListener('click', e => { if (e.target === $('lightbox')) closeLightbox(); });
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
   $('togglePicker').addEventListener('click',startPicker);
   $('addTripTop')?.addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
