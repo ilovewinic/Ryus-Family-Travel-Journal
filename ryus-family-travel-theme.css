@@ -1228,3 +1228,14 @@ body.auth-child #homeFeaturedSettings{display:none!important}
   line-height:1;
   cursor:pointer;
 }
+
+
+/* Make the editor's existing-photo actions legible and thumb-friendly on phones. */
+@media(max-width:520px){
+  .photo-manage-card{border-radius:12px}
+  .photo-manage-details{padding:8px 8px 4px}
+  .photo-manage-details b{font-size:10px}
+  .photo-manage-details small{font-size:9px}
+  .photo-manage-actions{gap:5px;padding:6px}
+  .photo-manage-actions button{min-height:34px;font-size:9px;padding:7px 4px}
+}
