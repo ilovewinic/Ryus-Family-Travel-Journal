@@ -282,7 +282,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
           <div class="field"><label for="tripRegion">시·도 / 도시</label><input id="tripRegion" maxlength="80" placeholder="예: 강원특별자치도 강릉시" /></div>
           <div class="field full"><label>지도 위치 지정</label><button type="button" class="secondary" id="togglePicker">📍 지도에서 위치 선택하기</button><div class="map-picker" id="mapPicker"><div class="picker-map" id="pickerMap"></div><div class="coord-note" id="coordNote">지도를 눌러 여행 장소의 위치를 찍어주세요. 같은 장소를 다시 기록할 때는 같은 위치를 선택하면 방문 횟수가 합쳐집니다.</div></div></div>
           <div class="field full"><label for="tripMemo">여행 메모</label><textarea id="tripMemo" maxlength="2000" placeholder="기억하고 싶은 순간, 함께한 사람, 인상 깊었던 곳 등을 적어보세요."></textarea></div>
-          <div class="field full"><label for="tripFiles">여행 사진 추가</label><input id="tripFiles" type="file" accept="image/*" multiple /><div class="file-help">원본 사진으로 미리보기와 확대·다운로드를 테스트할 수 있습니다. 실제 R2 업로드 및 자동 용량 최적화는 서버 연결 단계에서 적용합니다.</div><div class="photo-preview-row" id="newPhotoPreview"></div><div id="existingPhotos" class="file-help"></div></div>
+          <div class="field full"><label for="tripFiles">여행 사진 추가</label><input id="tripFiles" type="file" accept="image/*" multiple /><div class="file-help">새로 선택한 사진은 아래에서 확인하고, 저장하면 가족 앨범에 등록됩니다. 저장된 사진은 아래 사진 관리 영역에서 대표사진 지정 또는 삭제가 가능합니다.</div><div class="photo-preview-row" id="newPhotoPreview"></div><div id="existingPhotos" class="file-help"></div></div>
         </div>
       </div>
       <div class="modal-actions"><button type="button" class="secondary" id="deleteTripBtn" style="display:none;color:#b55d55">기록 삭제</button><div class="right-actions"><button type="button" class="secondary" id="cancelModal">취소</button><button type="submit" class="primary">저장하기</button></div></div>
@@ -387,12 +387,15 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let homeFeaturedSelectionLoaded = false;
   let mapMarkers = [];
   const OVERLAY_HISTORY_KEY = '__ryusFamilyJournalOverlay';
-  let ignoreOverlayPopstate = false;
   let lightboxOpenToken = 0;
 
   function pushOverlayHistory(type) {
     const previous = history.state && typeof history.state === 'object' ? history.state : {};
     history.pushState({ ...previous, [OVERLAY_HISTORY_KEY]: type }, '', location.href);
+  }
+  function replaceOverlayHistory(type) {
+    const previous = history.state && typeof history.state === 'object' ? history.state : {};
+    history.replaceState({ ...previous, [OVERLAY_HISTORY_KEY]: type }, '', location.href);
   }
   function closeLightboxVisual() {
     lightboxOpenToken += 1;
@@ -415,24 +418,13 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   function closeTripDetail() {
     const ownsHistory = history.state?.[OVERLAY_HISTORY_KEY] === 'trip-detail';
     closeTripDetailVisual();
-    if (ownsHistory) {
-      ignoreOverlayPopstate = true;
-      history.back();
-    }
+    if (ownsHistory) history.back();
   }
   window.addEventListener('popstate', () => {
-    if (ignoreOverlayPopstate) {
-      ignoreOverlayPopstate = false;
-      return;
-    }
-    // Close only the topmost visible layer. A second Back closes the layer beneath it.
-    if ($('lightbox')?.classList.contains('open')) {
-      closeLightboxVisual();
-      return;
-    }
-    if ($('tripDetailModal')?.classList.contains('open')) {
-      closeTripDetailVisual();
-    }
+    const activeHistoryLayer = history.state?.[OVERLAY_HISTORY_KEY] || '';
+    if ($('lightbox')?.classList.contains('open') && activeHistoryLayer !== 'photo') closeLightboxVisual();
+    if ($('tripModal')?.classList.contains('open') && activeHistoryLayer !== 'trip-edit') closeModalVisual();
+    if ($('tripDetailModal')?.classList.contains('open') && activeHistoryLayer !== 'trip-detail') closeTripDetailVisual();
   });
 
   function toast(message) {
@@ -896,14 +888,49 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     if(view==='photos'||view==='prints')renderPhotos();
     window.scrollTo({top:0,behavior:'smooth'});
   }
-  function openModal(trip=null) {
-    $('tripForm').reset();pendingFiles=[];$('newPhotoPreview').innerHTML='';$('existingPhotos').innerHTML='';$('tripLat').value='';$('tripLng').value='';$('mapPicker').classList.remove('show');pickerVisible=false;
-    $('modalTitle').textContent=trip?'여행 기록 수정':'새 여행 기록';$('editTripId').value=trip?.id||'';$('deleteTripBtn').style.display=trip?'inline-block':'none';
-    $('tripDate').value=trip?.date||new Date().toISOString().slice(0,10);$('tripTitle').value=trip?.title||'';$('tripPlace').value=trip?.place||'';$('tripRegion').value=trip?.region||'';$('tripCountry').value=trip?.country||(trip?.type==='overseas'?'':'대한민국');$('tripType').value=trip?.type||'domestic';$('tripMemo').value=trip?.memo||'';$('tripLat').value=trip?.lat??'';$('tripLng').value=trip?.lng??'';
-    if(trip){const existing=getTripPhotos(trip.id);$('existingPhotos').textContent=existing.length?`현재 등록된 사진 ${existing.length}장. 새 사진을 추가할 수 있습니다.`:'현재 등록된 사진 없음';}
+  function openModal(trip=null, options={}) {
+    const wasOpen = $('tripModal').classList.contains('open');
+    if (!wasOpen) {
+      if (options.replaceHistory) replaceOverlayHistory('trip-edit');
+      else pushOverlayHistory('trip-edit');
+    }
+    $('tripForm').reset();
+    pendingFiles=[];
+    $('newPhotoPreview').innerHTML='';
+    $('existingPhotos').innerHTML='';
+    $('tripFiles').value='';
+    $('tripLat').value='';
+    $('tripLng').value='';
+    $('mapPicker').classList.remove('show');
+    pickerVisible=false;
+    $('modalTitle').textContent=trip?'여행 기록 수정':'새 여행 기록';
+    $('editTripId').value=trip?.id||'';
+    $('deleteTripBtn').style.display=trip?'inline-block':'none';
+    $('tripDate').value=trip?.date||new Date().toISOString().slice(0,10);
+    $('tripTitle').value=trip?.title||'';
+    $('tripPlace').value=trip?.place||'';
+    $('tripRegion').value=trip?.region||'';
+    $('tripCountry').value=trip?.country||(trip?.type==='overseas'?'':'대한민국');
+    $('tripType').value=trip?.type||'domestic';
+    $('tripMemo').value=trip?.memo||'';
+    $('tripLat').value=trip?.lat??'';
+    $('tripLng').value=trip?.lng??'';
+    if(trip){
+      const existing=getTripPhotos(trip.id);
+      $('existingPhotos').textContent=existing.length
+        ? '이 여행에 저장된 사진 ' + existing.length + '장 · 아래에서 사진별 대표사진 지정 또는 삭제가 가능합니다.'
+        : '아직 저장된 사진이 없습니다. 위에서 새 사진을 추가할 수 있습니다.';
+    } else {
+      $('existingPhotos').textContent='새 여행을 저장한 뒤 사진별 대표사진 지정과 삭제를 할 수 있습니다.';
+    }
     $('tripModal').classList.add('open');
   }
-  function closeModal(){ $('tripModal').classList.remove('open'); }
+  function closeModalVisual(){ $('tripModal').classList.remove('open'); }
+  function closeModal(){
+    const ownsHistory = history.state?.[OVERLAY_HISTORY_KEY] === 'trip-edit';
+    closeModalVisual();
+    if (ownsHistory) history.back();
+  }
   function startPicker() {
     $('mapPicker').classList.toggle('show');pickerVisible=$('mapPicker').classList.contains('show');
     if(!pickerVisible)return;
@@ -917,12 +944,58 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     },120);
   }
   function setPickerPoint(lat,lng,notify=true){$('tripLat').value=lat.toFixed(6);$('tripLng').value=lng.toFixed(6);if(pickerMarker)pickerMap.removeLayer(pickerMarker);pickerMarker=L.marker([lat,lng]).addTo(pickerMap);$('coordNote').textContent=`위치 선택 완료 · ${lat.toFixed(4)}, ${lng.toFixed(4)} · 다른 위치를 누르면 변경됩니다.`;if(notify)toast('지도 위치를 선택했어요.');}
-  $('tripFiles').addEventListener('change',e=>{pendingFiles=[...e.target.files].filter(f=>f.type.startsWith('image/'));$('newPhotoPreview').innerHTML='';pendingFiles.slice(0,8).forEach(f=>{const img=document.createElement('img');img.src=URL.createObjectURL(f);$('newPhotoPreview').appendChild(img);});if(pendingFiles.length>8)toast('사진 미리보기는 8장까지 표시합니다.');});
+  const pendingPreviewUrls = new Set();
+  function renderPendingPhotoPreview(){
+    pendingPreviewUrls.forEach(url=>URL.revokeObjectURL(url));
+    pendingPreviewUrls.clear();
+    const holder=$('newPhotoPreview');
+    if(!holder)return;
+    holder.innerHTML='';
+    pendingFiles.forEach((file,index)=>{
+      const item=document.createElement('div');
+      item.className='pending-photo-item';
+      const img=document.createElement('img');
+      img.alt=file.name;
+      const url=URL.createObjectURL(file);
+      pendingPreviewUrls.add(url);
+      img.src=url;
+      const name=document.createElement('span');
+      name.textContent=file.name;
+      name.title=file.name;
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='pending-photo-remove';
+      remove.textContent='×';
+      remove.setAttribute('aria-label',file.name+' 선택 취소');
+      remove.dataset.removePendingPhoto=String(index);
+      item.append(img,name,remove);
+      holder.appendChild(item);
+    });
+  }
+  $('tripFiles').addEventListener('change',e=>{
+    const picked=[...e.target.files].filter(f=>f.type.startsWith('image/'));
+    pendingFiles.push(...picked);
+    e.target.value='';
+    renderPendingPhotoPreview();
+    if(picked.length)toast('새 사진 '+picked.length+'장을 추가했습니다. 저장을 누르면 여행 앨범에 등록됩니다.');
+  });
+  $('newPhotoPreview').addEventListener('click',event=>{
+    const button=event.target.closest?.('[data-remove-pending-photo]');
+    if(!button)return;
+    const index=Number(button.dataset.removePendingPhoto);
+    if(Number.isInteger(index)&&index>=0&&index<pendingFiles.length){
+      pendingFiles.splice(index,1);
+      renderPendingPhotoPreview();
+    }
+  });
   $('tripForm').addEventListener('submit',async e=>{
     e.preventDefault();const id=$('editTripId').value||uid('trip');const existing=getTrip(id);
     const trip={id,title:$('tripTitle').value.trim(),date:$('tripDate').value,type:$('tripType').value,country:$('tripCountry').value.trim(),place:$('tripPlace').value.trim(),region:$('tripRegion').value.trim(),memo:$('tripMemo').value.trim(),lat:$('tripLat').value?Number($('tripLat').value):'',lng:$('tripLng').value?Number($('tripLng').value):''};
     if(existing)Object.assign(existing,trip);else trips.push(trip);
     for(const f of pendingFiles){const pid=uid('photo');const meta={id:pid,tripId:id,name:f.name,printSelected:false,type:f.type,size:f.size};photos.push(meta);photoBlobs.set(pid,f);try{await putBlob(pid,f);}catch(err){console.error(err);toast('사진 저장 공간에 문제가 있어 일부 사진이 저장되지 않았을 수 있어요.');}}
+    pendingFiles=[];
+    renderPendingPhotoPreview();
+    $('tripFiles').value='';
     persist();closeModal();renderAll();toast('여행 기록을 저장했어요! 🌼');
   });
   async function deleteTrip(id){const related=photos.filter(p=>p.tripId===id);for(const p of related){await deleteBlob(p.id).catch(()=>{});photoBlobs.delete(p.id);}photos=photos.filter(p=>p.tripId!==id);trips=trips.filter(t=>t.id!==id);persist();closeModal();renderAll();toast('여행 기록과 연결 사진을 삭제했어요.');}
@@ -1069,8 +1142,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const trip = getTrip(currentTripDetailId);
     if (!trip) return;
 
-    closeTripDetail();
-    openModal(trip);
+    closeTripDetailVisual();
+    openModal(trip, { replaceHistory: true });
   });
  $('closeLightbox').addEventListener('click', closeLightbox);
  $('lightbox').addEventListener('click', e => { if (e.target === $('lightbox')) closeLightbox(); });
