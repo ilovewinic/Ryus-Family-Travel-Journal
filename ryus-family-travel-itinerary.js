@@ -61,7 +61,6 @@
     const printNav = sidebar.querySelector('[data-view="prints"]');
     const navHTML =
       '<button class="nav" data-view="places"><span class="ico">📍</span>방문 장소</button>' +
-      '<button class="nav" data-view="stays"><span class="ico">🏨</span>숙소 모아보기</button>' +
       '<button class="nav" data-view="map"><span class="ico">🗺️</span>여행 지도</button>' +
       '<button class="nav" data-view="stats"><span class="ico">📊</span>여행 통계</button>';
     if (printNav) printNav.insertAdjacentHTML('beforebegin', navHTML);
@@ -75,15 +74,12 @@
       '<section id="view-places" class="view trip-explorer-view">' +
         '<div class="toolbar"><div><h2>우리 가족이 다녀온 장소 📍</h2><p>관광지와 식당, 카페와 체험 장소를 여행별로 모아봐요.</p></div><span class="soft-pill" id="placeTotalPill">0곳</span></div>' +
         '<div class="explorer-summary" id="placesSummary"></div>' +
+        '<div class="place-subnav"><button type="button" class="active" data-place-tab="all">전체 장소</button><button type="button" data-place-tab="attraction">관광지</button><button type="button" data-place-tab="food">맛집·카페</button><button type="button" data-place-tab="stay">숙소</button></div>' +
         '<div class="explorer-filter"><input id="placeSearch" type="search" placeholder="장소 이름이나 지역 검색" /><select id="placeCategoryFilter"><option value="all">모든 종류</option><option value="attraction">관광지</option><option value="restaurant">식당</option><option value="cafe">카페</option><option value="experience">체험</option><option value="shopping">쇼핑</option><option value="other">기타</option></select><select id="placeStatusFilter"><option value="visited">다녀온 곳</option><option value="planned">방문 예정</option><option value="all">전체</option></select></div>' +
-        '<div id="allFamilyPlaces" class="explorer-card-grid"></div>' +
+        '<div id="allFamilyPlaces" class="place-trip-groups"></div>' +
+        '<section class="place-directory-stays"><div class="place-directory-heading"><h3>🏨 우리 가족 숙소 기록</h3><span id="stayTotalPill">0회</span></div><div class="explorer-summary" id="staysSummary"></div><div class="explorer-filter"><input id="staySearch" type="search" placeholder="숙소 이름이나 지역 검색" /></div><div id="allFamilyStays" class="explorer-card-grid"></div></section>' +
       '</section>' +
-      '<section id="view-stays" class="view trip-explorer-view">' +
-        '<div class="toolbar"><div><h2>우리 가족 숙소 모아보기 🏨</h2><p>여행마다 이용한 호텔과 펜션, 리조트를 한곳에서 확인해요.</p></div><span class="soft-pill" id="stayTotalPill">0곳</span></div>' +
-        '<div class="explorer-summary" id="staysSummary"></div>' +
-        '<div class="explorer-filter"><input id="staySearch" type="search" placeholder="숙소 이름이나 지역 검색" /></div>' +
-        '<div id="allFamilyStays" class="explorer-card-grid"></div>' +
-      '</section>' +
+
       '<section id="view-map" class="view trip-explorer-view">' +
         '<div class="toolbar"><div><h2>우리 가족 여행 지도 🗺️</h2><p>방문 장소와 숙소, 예전 여행의 대표 위치를 함께 살펴봐요.</p></div><button class="secondary" type="button" id="refreshFamilyMap">새로고침</button></div>' +
         '<div class="map-legend"><span>📍 방문 장소</span><span>🏨 숙소</span><span>🧳 기존 여행 대표 위치</span></div>' +
@@ -152,8 +148,17 @@
         '<label><span>방문 상태</span><select data-field="status"><option value="visited">다녀왔어요</option><option value="planned">방문 예정</option></select></label>' +
         '<label class="wide"><span>주소 / 위치</span><input data-field="address" placeholder="예: 충남 아산시 ... " /></label>' +
         '<label><span>시·도 / 지역</span><input data-field="region" placeholder="예: 충청남도 아산시" /></label>' +
+        '<label class="food-only" data-food-field><span>음식 종류</span><select data-field="cuisineType"><option value="">선택 안 함</option><option>한식</option><option>중식</option><option>일식</option><option>양식</option><option>분식</option><option>고기·구이</option><option>해산물</option><option>카페·디저트</option><option>기타</option></select></label>' +
+        '<label class="food-only" data-food-field><span>식사 구분</span><select data-field="mealType"><option value="">선택 안 함</option><option>아침</option><option>점심</option><option>저녁</option><option>간식</option></select></label>' +
+        '<label class="wide food-only" data-food-field><span>먹은 메뉴</span><input data-field="orderedMenu" placeholder="예: 돼지갈비, 칼국수, 돈가스 (쉼표로 구분)" /></label>' +
+        '<label class="wide food-only" data-food-field><span>가족 평가</span><textarea data-field="familyFeedback" rows="2" placeholder="아빠·수호·현아의 반응, 좋았던 점, 아쉬웠던 점"></textarea></label>' +
         '<label><span>별점</span><select data-field="rating"><option value="">평가 안 함</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label>' +
         '<label class="wide"><span>기억할 내용</span><textarea data-field="memo" rows="2" maxlength="1000" placeholder="맛있었던 메뉴, 아이들 반응, 다시 가고 싶은 이유 등"></textarea></label>' +
+      '</div>' +
+      '<label class="wide"><span>어느 장소와 연결할까요?</span><select data-field="parentPlaceClientId"><option value="">여행에 직접 연결 (상위 장소 없음)</option></select></label>' +
+      '<div class="place-food-review food-only" data-food-field>' +
+        '<label class="food-check"><input data-field="revisitRecommendation" type="checkbox" /> 가족이 다시 가고 싶은 맛집</label>' +
+        '<div class="family-rating-grid"><label>아빠 <select data-field="dadRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label><label>수호 <select data-field="suhoRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label><label>현아 <select data-field="hyeonahRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label></div>' +
       '</div>' +
       '<div class="place-coordinates"><span>지도 위치</span><input data-field="lat" inputmode="decimal" placeholder="위도" /><input data-field="lng" inputmode="decimal" placeholder="경도" /><button type="button" class="tiny-btn neutral" data-pick-location>지도에서 선택</button><label><input data-field="favorite" type="checkbox" /> 다시 가고 싶은 곳</label></div>';
     setRowValues(row, item);
