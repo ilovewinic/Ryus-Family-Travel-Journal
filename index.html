@@ -169,18 +169,20 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 <div class="app">
   <header class="topbar family-masthead">
     <div class="brand"><div class="brand-mark">📷</div><div><h1>가족 여행기록장</h1><small>우리 가족의 소중한 여행 이야기 ♡</small></div></div>
+    <div class="family-travel-sign" aria-hidden="true">Travel ♡</div>
     <div class="top-actions"><span class="soft-pill">🌼 Together, always</span><div class="profile-dot">👨‍👩‍👧‍👦</div></div>
   </header>
   <div class="layout">
     <aside class="sidebar">
-      <div class="side-label">OUR JOURNEY</div>
-      <button class="nav active" data-view="home"><span class="ico">🗺️</span>여행 지도</button>
-      <button class="nav" data-view="trips"><span class="ico">🧳</span>여행 기록</button>
-      <button class="nav" data-view="photos"><span class="ico">📷</span>전체 사진첩</button>
+      <div class="side-label">OUR FAMILY TRIP</div>
+      <button class="nav active" data-view="home"><span class="ico">🏠</span>홈</button>
+      <button class="nav" data-view="trips"><span class="ico">🖼️</span>여행 기록</button>
+      <button class="nav" data-view="photos"><span class="ico">📷</span>사진 앨범</button>
+      <button class="nav locked" data-view="expenses"><span class="ico">💰</span>여행 경비</button>
+      <button class="nav" data-home-scroll="home-map-panel"><span class="ico">📍</span>여행 지도</button>
+      <button class="nav" data-home-scroll="home-region-panel"><span class="ico">📊</span>통계 보기</button>
       <button class="nav" data-view="prints"><span class="ico">💛</span>인화용 사진</button>
-      <div class="side-label" style="margin-top:12px">PRIVATE</div>
-      <button class="nav locked" data-view="expenses"><span class="ico">🔒</span>부모 전용 경비</button>
-      <div class="side-note"><b>🌈 우리 가족의 발자취</b>여행을 기록할수록 지도에 추억의 장소가 하나씩 쌓여요.</div>
+      <div class="side-note"><b>🌷 다음 여행도 기대돼요!</b>우리 가족의 발자국이 모여 특별한 지도가 돼요.</div>
     </aside>
     <main>
       <section id="view-home" class="view active">
@@ -216,7 +218,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
               <div id="homeRecentExpensesList"><div class="locked-box"><b>부모 계정 전용</b>최근 여행 경비는 부모 계정에서만 확인할 수 있어요.</div></div>
               <button class="secondary" type="button" id="homeExpensesMore">여행 경비 전체 보기 →</button>
             </section>
-            <section class="panel side-panel home-region-panel">
+            <section class="panel side-panel home-region-panel" id="home-region-panel">
               <div class="home-card-heading"><span>🗺️</span><div><h3>우리 가족이 다녀온 곳</h3><p>지역별 방문 횟수</p></div></div>
               <div class="home-region-highlights">
                 <div><strong id="homeRegionTotal">0</strong><span>방문 지역</span></div>
@@ -225,7 +227,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
               <div id="homeRegionBars" class="home-region-bars"><div class="home-region-empty">여행을 기록하면 다녀온 지역이 차곡차곡 쌓여요.</div></div>
               <div class="home-season-row" id="homeSeasonStats"></div>
             </section>
-            <section class="panel map-panel home-map-card">
+            <section class="panel map-panel home-map-card" id="home-map-panel">
               <div class="section-head"><div><h3>우리 가족의 여행 지도</h3><p>방문한 곳을 지도에서 살펴봐요.</p></div><div class="map-controls"><select id="mapTypeFilter" class="select-small"><option value="all">국내 + 해외</option><option value="domestic">국내만</option><option value="overseas">해외만</option></select><select id="mapYearFilter" class="select-small"><option value="all">전체 연도</option></select></div></div>
               <div class="map-wrap"><div id="mainMap" class="map-canvas" aria-label="가족 여행 지도"></div><div class="map-empty" id="mapEmpty"><div class="big">🧭</div><b>우리 가족의 첫 여행을 기록해 보세요!</b><span>여행 장소가 지도 위에 아이콘으로 표시됩니다.</span></div></div>
               <div class="map-foot"><div class="map-legend"><span class="legend-item"><i class="legend-dot"></i>방문 장소</span><span>숫자는 같은 장소의 방문 횟수</span></div><span>지도 © OpenStreetMap</span></div>
@@ -816,7 +818,16 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
   $('togglePicker').addEventListener('click',startPicker);
   $('addTripTop').addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
-  document.querySelectorAll('.nav').forEach(n=>n.addEventListener('click',()=>setView(n.dataset.view)));
+  document.querySelectorAll('.nav').forEach(n=>n.addEventListener('click',()=>{
+    if (n.dataset.homeScroll) {
+      setView('home');
+      document.querySelectorAll('.nav').forEach(item=>item.classList.remove('active'));
+      n.classList.add('active');
+      setTimeout(()=>document.getElementById(n.dataset.homeScroll)?.scrollIntoView({behavior:'smooth',block:'center'}),120);
+    } else if (n.dataset.view) {
+      setView(n.dataset.view);
+    }
+  }));
   $('mapTypeFilter').addEventListener('change',renderMap);$('mapYearFilter').addEventListener('change',renderMap);$('tripYearFilter').addEventListener('change',renderTrips);$('tripTypeFilter').addEventListener('change',renderTrips);
   $('homeFeaturePrev')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+count-1)%count;renderHomeFeatured();}});
   $('homeFeatureNext')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+1)%count;renderHomeFeatured();}});
