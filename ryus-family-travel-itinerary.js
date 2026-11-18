@@ -75,7 +75,7 @@
         '<div class="toolbar"><div><h2>우리 가족이 다녀온 장소 📍</h2><p>관광지와 식당, 카페와 체험 장소를 여행별로 모아봐요.</p></div><span class="soft-pill" id="placeTotalPill">0곳</span></div>' +
         '<div class="explorer-summary" id="placesSummary"></div>' +
         '<div class="place-subnav"><button type="button" class="active" data-place-tab="all">전체 장소</button><button type="button" data-place-tab="attraction">관광지</button><button type="button" data-place-tab="food">맛집·카페</button><button type="button" data-place-tab="stay">숙소</button></div>' +
-        '<div class="explorer-filter"><input id="placeSearch" type="search" placeholder="장소 이름이나 지역 검색" /><select id="placeCategoryFilter"><option value="all">모든 종류</option><option value="attraction">관광지</option><option value="restaurant">식당</option><option value="cafe">카페</option><option value="experience">체험</option><option value="shopping">쇼핑</option><option value="other">기타</option></select><select id="placeStatusFilter"><option value="visited">다녀온 곳</option><option value="planned">방문 예정</option><option value="all">전체</option></select></div>' +
+        '<div class="explorer-filter"><input id="placeSearch" type="search" placeholder="장소 이름이나 지역 검색" /><select id="placeCategoryFilter"><option value="all">모든 종류</option><option value="attraction">관광지</option><option value="restaurant">맛집·식당</option><option value="cafe">카페</option><option value="experience">체험</option><option value="shopping">쇼핑</option><option value="other">기타</option></select><select id="placeStatusFilter"><option value="visited">다녀온 곳</option><option value="planned">방문 예정</option><option value="all">전체</option></select></div>' +
         '<div id="allFamilyPlaces" class="place-trip-groups"></div>' +
         '<section class="place-directory-stays"><div class="place-directory-heading"><h3>🏨 우리 가족 숙소 기록</h3><span id="stayTotalPill">0회</span></div><div class="explorer-summary" id="staysSummary"></div><div class="explorer-filter"><input id="staySearch" type="search" placeholder="숙소 이름이나 지역 검색" /></div><div id="allFamilyStays" class="explorer-card-grid"></div></section>' +
       '</section>' +
@@ -255,12 +255,14 @@
       const current = select.value || row.dataset.parentPlaceClientId || '';
       const category = row.querySelector('[data-field="category"]')?.value || 'attraction';
       const eligible = rows.filter(candidate => candidate !== row && ['attraction','experience'].includes(candidate.querySelector('[data-field="category"]')?.value));
+      const validParentIds = new Set(eligible.map(candidate => String(candidate.dataset.clientId)));
+      const selectedParent = validParentIds.has(String(current)) ? current : '';
       select.innerHTML = '<option value="">여행에 직접 연결 (상위 장소 없음)</option>' + eligible.map(candidate => {
         const name = candidate.querySelector('[data-field="name"]')?.value || '이름 미입력';
         return '<option value="' + escapeHTML(candidate.dataset.clientId) + '">' + escapeHTML(name) + '</option>';
       }).join('');
-      select.value = current;
-      row.dataset.parentPlaceClientId = current;
+      select.value = selectedParent;
+      row.dataset.parentPlaceClientId = selectedParent;
       const isFood = ['restaurant','cafe'].includes(category);
       row.querySelectorAll('[data-food-field]').forEach(field => field.hidden = !isFood);
     });
@@ -270,9 +272,12 @@
     [...($('tripStayEditorRows')?.querySelectorAll('.trip-extra-item') || [])].forEach(row => {
       const select = row.querySelector('[data-field="relatedPlaceClientId"]');
       if (!select) return;
-      const current = select.value;
+      const current = select.value || row.dataset.relatedPlaceClientId || '';
+      const validIds = new Set(places.map(place => String(place.dataset.clientId)));
+      const selectedPlace = validIds.has(String(current)) ? current : '';
       select.innerHTML = '<option value="">여행 전체에 연결</option>' + places.map(place => '<option value="' + escapeHTML(place.dataset.clientId) + '">' + escapeHTML(place.querySelector('[data-field="name"]')?.value || '이름 미입력') + '</option>').join('');
-      select.value = current || row.dataset.relatedPlaceClientId || '';
+      select.value = selectedPlace;
+      row.dataset.relatedPlaceClientId = selectedPlace;
     });
   }
   function populateTripFields() {
