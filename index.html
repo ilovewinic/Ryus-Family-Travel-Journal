@@ -689,7 +689,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     return `<div class="cover-placeholder">${t.type==='overseas'?'🌏':'🌿'}</div>`;
   }
   function tripCard(t) {
-    return `<article class="trip-card" data-trip-card="${escapeHTML(t.id)}"><div class="trip-cover">${coverHTML(t)}<span class="trip-type">${t.type==='overseas'?'해외 여행':'국내 여행'}</span></div><div class="trip-body"><h4>${escapeHTML(t.title)}</h4><div class="trip-meta"><span>📍 ${escapeHTML(t.place||'장소 미지정')}</span><span>📅 ${escapeHTML(dateLabel(t.date))}</span></div><div class="trip-snippet">${escapeHTML(t.memo||'우리 가족의 소중한 여행 기록')}</div></div></article>`;
+    return `<article class="trip-card" data-trip-card="${escapeHTML(t.id)}"><div class="trip-cover">${coverHTML(t)}<span class="trip-type">${t.type==='overseas'?'해외 여행':'국내 여행'}</span></div><div class="trip-body"><h4>${escapeHTML(t.title)}</h4><div class="trip-meta"><span>📍 ${escapeHTML(t.place||'장소 미지정')}</span><span>📅 ${escapeHTML(dateLabel(t.date) + (t.endDate && t.endDate !== t.date ? " – " + dateLabel(t.endDate) : ""))}</span></div><div class="trip-snippet">${escapeHTML(t.memo||'우리 가족의 소중한 여행 기록')}</div></div></article>`;
   }
   function bindTripCards(root) {root.querySelectorAll('[data-trip-card]').forEach(el=>el.addEventListener('click',()=>openTripDetail(el.dataset.tripCard)));}
   function renderTrips() {
@@ -858,10 +858,10 @@ style="background:#fff0ec;color:#bd655b;display:none;">
 
   $('tripDetailTitle').textContent = t.title || '여행 기록';
   $('tripDetailSubtitle').textContent =
-    `${dateLabel(t.date)} · ${t.type === 'overseas' ? '해외 여행' : '국내 여행'}`;
+    `${dateLabel(t.date)}${t.endDate && t.endDate !== t.date ? ' – ' + dateLabel(t.endDate) : ''} · ${t.type === 'overseas' ? '해외 여행' : '국내 여행'}`;
 
   $('tripDetailInfo').innerHTML = `
-    <div class="detail-line">📅 ${escapeHTML(dateLabel(t.date))}</div>
+    <div class="detail-line">📅 ${escapeHTML(dateLabel(t.date) + (t.endDate && t.endDate !== t.date ? " – " + dateLabel(t.endDate) : ""))}</div>
     <div class="detail-line">📍 ${escapeHTML(t.place || '장소 미지정')}</div>
     <div class="detail-line">🗺️ ${escapeHTML([t.region, t.country].filter(Boolean).join(' · '))}</div>
     <div class="detail-memo">📝 ${escapeHTML(t.memo || '작성된 여행 메모가 없습니다.').replace(/\n/g, '<br>')}</div>
