@@ -126,6 +126,7 @@
   let cardCoverRenderToken = 0;
   const coverObjectURLs = new Map();
   let chooserObjectURLs = [];
+  const photoDeletesInProgress = new Set();
 
   function localState() {
     try {
@@ -768,32 +769,90 @@
 
   async function deleteTripPhotoFromEditor(photoId) {
     if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 사진을 삭제할 수 있습니다.');
+    const id = String(photoId || '');
+    if (!id || photoDeletesInProgress.has(id)) return;
+
     const tripId = document.getElementById('editTripId')?.value || '';
     const before = localState();
     const trip = before.trips.find(item => String(item.id) === String(tripId));
-    const photo = before.photos.find(item => String(item.id) === String(photoId) && String(item.tripId) === String(tripId));
+    const photo = before.photos.find(item => String(item.id) === id && String(item.tripId) === String(tripId));
     if (!trip || !photo) throw new Error('삭제할 사진을 현재 여행에서 찾지 못했습니다.');
     if (!confirm('이 사진을 가족 앨범에서 완전히 삭제할까요? 다른 가족 기기에서도 삭제됩니다.')) return;
-
-    if (String(trip.coverPhotoId || '') === String(photoId)) {
-      await setRepresentativePhoto(null);
-    }
     if (typeof window.deleteFamilyPhotoFromCloud !== 'function') {
       throw new Error('사진 삭제 서비스를 찾지 못했습니다. 다시 로그인한 뒤 시도해 주세요.');
     }
-    await window.deleteFamilyPhotoFromCloud(photoId);
 
-    const state = localState();
-    state.photos = state.photos.filter(item => String(item.id) !== String(photoId));
-    saveLocalState(state);
-    await deleteLocalPhotoBlobs([String(photoId)]);
-    window.clearFamilyPhotoBlobCache?.(photoId);
+    photoDeletesInProgress.add(id);
+    const photoSnapshot = { ...photo };
+    const wasRepresentative = String(trip.coverPhotoId || '') === id;
+    const previousCoverId = trip.coverPhotoId || null;
 
-    await window.refreshFamilyTravelHome?.();
-    await renderRepresentativeChooser();
-    await renderCardCovers();
-    window.refreshFamilyTripDetail?.(tripId);
-    toast('사진을 가족 앨범에서 삭제했습니다.');
+    try {
+      // Optimistic UI: remove the tile immediately while the cloud request continues.
+      const optimistic = localState();
+      optimistic.photos = optimistic.photos.filter(item => String(item.id) !== id);
+      const optimisticTrip = optimistic.trips.find(item => String(item.id) === String(tripId));
+      if (wasRepresentative && optimisticTrip) optimisticTrip.coverPhotoId = null;
+      saveLocalState(optimistic);
+
+      await window.refreshFamilyTravelHome?.();
+      await renderRepresentativeChooser();
+      await renderCardCovers();
+      window.refreshFamilyTripDetail?.(tripId);
+      toast('사진을 화면에서 먼저 제거했습니다. 클라우드 정리 중…');
+
+      if (wasRepresentative) {
+        const journal = await getJournalRow(tripId, 2);
+        if (journal) {
+          const { error } = await client.from('journals')
+            .update({ cover_photo_id: null })
+            .eq('id', journal.id);
+          if (error) throw new Error('대표사진 연결을 해제하지 못했습니다: ' + error.message);
+        }
+      }
+
+      await window.deleteFamilyPhotoFromCloud(id);
+      await deleteLocalPhotoBlobs([id]);
+      window.clearFamilyPhotoBlobCache?.(id);
+
+      await window.refreshFamilyTravelHome?.();
+      await renderRepresentativeChooser();
+      await renderCardCovers();
+      window.refreshFamilyTripDetail?.(tripId);
+      toast('사진을 가족 앨범에서 삭제했습니다.');
+    } catch (error) {
+      // Restore the local record if the server could not complete the deletion.
+      const restored = localState();
+      if (!restored.photos.some(item => String(item.id) === id)) {
+        restored.photos.push(photoSnapshot);
+      }
+      const restoredTrip = restored.trips.find(item => String(item.id) === String(tripId));
+      if (wasRepresentative && restoredTrip && !restoredTrip.coverPhotoId) {
+        restoredTrip.coverPhotoId = previousCoverId;
+      }
+      saveLocalState(restored);
+
+      if (wasRepresentative && previousCoverId) {
+        try {
+          const journal = await getJournalRow(tripId, 2);
+          if (journal) {
+            await client.from('journals')
+              .update({ cover_photo_id: previousCoverId })
+              .eq('id', journal.id);
+          }
+        } catch (restoreError) {
+          console.warn('[사진 삭제] 대표사진 연결 복원 실패', restoreError);
+        }
+      }
+
+      await window.refreshFamilyTravelHome?.();
+      await renderRepresentativeChooser();
+      await renderCardCovers();
+      window.refreshFamilyTripDetail?.(tripId);
+      throw error;
+    } finally {
+      photoDeletesInProgress.delete(id);
+    }
   }
 
   async function setRepresentativePhoto(photoId) {
