@@ -187,7 +187,7 @@ body:before{z-index:0}
   border-radius:25px;
   background:
     linear-gradient(90deg,rgba(255,250,240,.1),rgba(255,250,240,0) 52%),
-    url("./assets/family-travel-header.webp") center 51%/cover no-repeat,
+    url("./assets/family-travel-header.svg") center 51%/cover no-repeat,
     linear-gradient(110deg,#dff0fa,#fff0e6 55%,#dff1e5);
   box-shadow:0 12px 28px rgba(126,96,77,.11);
   overflow:hidden;
@@ -288,7 +288,7 @@ body:before{z-index:0}
 .home-map-card .map-empty span{font-size:9px}
 .home-map-card .map-foot{font-size:8px;margin-top:7px}
 .family-footer{position:relative;display:flex;align-items:center;justify-content:center;gap:18px;min-height:115px;margin:19px 0 0;padding:25px 15px 16px;border-radius:22px;overflow:hidden;text-align:center;color:#83675b;font-size:14px;font-weight:900;letter-spacing:.2px;background:linear-gradient(180deg,#fff7e9,#f8f3df 65%,#e6f2df);border:1px solid #f1e3cc}
-.family-footer:before{content:"";position:absolute;inset:0;opacity:.2;background:url("./assets/family-travel-header.webp") 80% 78%/cover no-repeat;pointer-events:none}
+.family-footer:before{content:"";position:absolute;inset:0;opacity:.2;background:url("./assets/family-travel-header.svg") 80% 78%/cover no-repeat;pointer-events:none}
 .family-footer>*{position:relative;z-index:1}
 .family-footer-doodle{color:#e6a79d;font-size:14px;letter-spacing:2px}
 .home-featured~.home-layout-grid{margin-bottom:4px}
