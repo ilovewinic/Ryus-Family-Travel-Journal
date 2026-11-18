@@ -275,6 +275,12 @@
         places: collectRows('tripPlaceEditorRows', 'place'),
         stays: collectRows('tripStayEditorRows', 'stay')
       };
+      if (payload.endDate && $('tripDate')?.value && payload.endDate < $('tripDate').value) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        toast('여행 종료일은 시작일보다 빠를 수 없습니다.');
+        return;
+      }
       const invalidStay = payload.stays.find(item => !item.checkIn || !item.checkOut || item.checkOut < item.checkIn);
       if (invalidStay) {
         event.preventDefault();
@@ -550,6 +556,10 @@
   function openTripFromExplorer(id) {
     const nav = document.querySelector('[data-view="trips"]');
     if (nav) nav.click();
+    if ($('tripYearFilter')) $('tripYearFilter').value = 'all';
+    if ($('tripTypeFilter')) $('tripTypeFilter').value = 'all';
+    $('tripYearFilter')?.dispatchEvent(new Event('change', { bubbles: true }));
+    $('tripTypeFilter')?.dispatchEvent(new Event('change', { bubbles: true }));
     setTimeout(() => {
       const cards = [...document.querySelectorAll('[data-trip-card]')];
       const card = cards.find(node => String(node.dataset.tripCard) === String(id));
