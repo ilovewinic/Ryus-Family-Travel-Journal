@@ -525,8 +525,9 @@
     state.stays.filter(item => Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng)) && item.lat !== '' && item.lng !== '').forEach(item => {
       points.push({ lat:Number(item.lat), lng:Number(item.lng), icon:'🏨', name:item.name, sub:dateText(item.checkIn) + ' – ' + dateText(item.checkOut), tripId:item.tripId });
     });
+    const tripsWithDetailedPins = new Set(points.map(point => String(point.tripId)));
     allTrips().filter(item => item.lat !== '' && item.lng !== '' && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng))).forEach(item => {
-      if (!state.places.some(place => String(place.tripId) === String(item.id)) && !state.stays.some(stay => String(stay.tripId) === String(item.id))) {
+      if (!tripsWithDetailedPins.has(String(item.id))) {
         points.push({ lat:Number(item.lat), lng:Number(item.lng), icon:'🧳', name:item.place || item.title, sub:dateRange(item), tripId:item.id });
       }
     });
