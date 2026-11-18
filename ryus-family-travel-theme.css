@@ -687,3 +687,12 @@ main{min-width:0!important;width:100%!important}
   .home-map-card .map-canvas{height:175px!important}
   .family-footer{min-height:76px!important;font-size:11px!important;flex-direction:column!important;gap:4px!important}
 }
+
+/* Small final spacing and sign placement refinements */
+.family-masthead{margin-bottom:9px!important}
+.family-travel-sign{right:12px!important;top:92px!important;padding:8px 19px!important}
+.sidebar .side-note:before{content:"🐰";display:block;font-size:31px;line-height:1.1;margin-bottom:5px}
+.family-footer-doodle{letter-spacing:4px!important}
+@media(max-width:850px){
+  .family-travel-sign{right:13px!important;top:85px!important}
+}
