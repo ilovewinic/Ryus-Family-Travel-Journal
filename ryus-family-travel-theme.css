@@ -1177,3 +1177,54 @@ body.auth-child #homeFeaturedSettings{display:none!important}
     background:transparent!important;
   }
 }
+
+
+/* Pending image attachments in the trip editor */
+.photo-preview-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  margin-top:9px;
+}
+.pending-photo-item{
+  position:relative;
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr);
+  align-items:center;
+  gap:7px;
+  width:min(230px,100%);
+  min-width:0;
+  padding:6px 30px 6px 6px;
+  border:1px solid #eee3da;
+  border-radius:11px;
+  background:#fffdfa;
+}
+.pending-photo-item img{
+  display:block;
+  width:58px;
+  height:58px;
+  object-fit:cover;
+  border-radius:8px;
+}
+.pending-photo-item span{
+  overflow:hidden;
+  color:#816a60;
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.pending-photo-remove{
+  position:absolute;
+  top:5px;
+  right:5px;
+  width:23px;
+  height:23px;
+  border:0;
+  border-radius:50%;
+  background:#fff0ec;
+  color:#b96760;
+  font-size:16px;
+  font-weight:900;
+  line-height:1;
+  cursor:pointer;
+}
