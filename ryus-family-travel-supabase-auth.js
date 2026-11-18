@@ -121,6 +121,7 @@
   let syncing = false;
   let syncTimer = null;
   let activeDetailTripId = null;
+  let homeExpensePhotoUrls = [];
   let coverRenderToken = 0;
   let cardCoverRenderToken = 0;
   const coverObjectURLs = new Map();
@@ -801,6 +802,8 @@
     if (familyProfile?.role !== 'parent') return;
     const holder = document.getElementById('homeRecentExpensesList');
     if (!holder) return;
+    homeExpensePhotoUrls.forEach(url => URL.revokeObjectURL(url));
+    homeExpensePhotoUrls = [];
     holder.innerHTML = '<div class="expense-empty">최근 여행 경비를 불러오고 있습니다.</div>';
     const [{ data: expenses, error: expenseError }, { data: journals, error: journalError }, deletedIds] = await Promise.all([
       client.from('journal_expenses').select('journal_id,category,amount,currency').order('expense_date', { ascending: false }),
@@ -834,7 +837,8 @@
       const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(Number(value || 0));
       return currency === 'KRW' ? '₩' + number : number + ' ' + currency;
     };
-    holder.innerHTML = recent.map(journal => {
+    const state = localState();
+    const cards = await Promise.all(recent.map(async journal => {
       const rows = byJournal.get(String(journal.id)) || [];
       const totals = new Map();
       const categories = [];
@@ -845,13 +849,31 @@
       });
       const totalLabel = [...totals.entries()].map(([currency,amount]) => formatAmount(amount,currency)).join('<br>');
       const categoryLabel = categories.slice(0,3).map(escapeHTML).join(' · ') || '지출 내역';
+      const trip = state.trips.find(item => String(item.id) === String(journal.client_id));
+      const tripPhotos = state.photos.filter(photo => String(photo.tripId) === String(journal.client_id));
+      const cover = tripPhotos.find(photo => String(photo.id) === String(trip?.coverPhotoId)) || tripPhotos[0];
+      let thumbnail = journal.trip_type === 'overseas' ? '🌏' : '🌿';
+      if (cover) {
+        try {
+          const blob = await readLocalPhotoBlob(cover.id);
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            homeExpensePhotoUrls.push(url);
+            thumbnail = `<img src="${url}" alt="" />`;
+          }
+        } catch (error) {
+          console.warn('[최근 여행 경비] 대표사진을 표시하지 못했습니다.', error);
+        }
+      }
       return `<article class="home-expense-item">
-        <div class="home-expense-thumb" aria-hidden="true">${journal.trip_type === 'overseas' ? '🌏' : '🌿'}</div>
+        <div class="home-expense-thumb" aria-hidden="true">${thumbnail}</div>
         <div class="home-expense-copy"><strong>${escapeHTML(journal.title || '가족 여행')}</strong><small>${escapeHTML(journal.visit_date || '')} · ${categoryLabel}</small></div>
         <div class="home-expense-amount">${totalLabel}</div>
       </article>`;
-    }).join('');
+    }));
+    holder.innerHTML = cards.join('');
   }
+  window.refreshFamilyHomeRecentExpenses = () => renderHomeRecentExpenses();
 
   async function deleteTripFromCloud() {
     if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 여행 기록을 삭제할 수 있습니다.');
