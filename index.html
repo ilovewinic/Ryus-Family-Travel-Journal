@@ -979,7 +979,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
  $('closeLightbox').addEventListener('click',()=>{$('lightbox').classList.remove('open');$('lightboxImage').src='';currentLightboxPhoto=null;});$('lightbox').addEventListener('click',e=>{if(e.target===$('lightbox'))$('closeLightbox').click();});
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
   $('togglePicker').addEventListener('click',startPicker);
-  $('addTripTop').addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
+  $('addTripTop')?.addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
   document.addEventListener('click',event=>{
     const n=event.target.closest?.('.nav');
     if(!n)return;
