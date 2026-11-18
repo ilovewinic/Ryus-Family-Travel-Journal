@@ -635,6 +635,17 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     );
   }
   function renderAll() {renderStats();refreshMapFilters();renderMap();renderTrips();renderHomeFeatured();renderPhotos();}
+  window.refreshFamilyTravelHome = async function() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      trips = Array.isArray(saved.trips) ? saved.trips : [];
+      photos = Array.isArray(saved.photos) ? saved.photos : [];
+      await loadBlobURLs();
+      renderAll();
+    } catch (error) {
+      console.warn('[가족 여행 홈 새로고침]', error);
+    }
+  };
   function setView(view) {
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     $('view-'+view).classList.add('active');
