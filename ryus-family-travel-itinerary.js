@@ -161,7 +161,8 @@
         '<div class="family-rating-grid"><label>아빠 <select data-field="dadRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label><label>수호 <select data-field="suhoRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label><label>현아 <select data-field="hyeonahRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label></div>' +
       '</div>' +
       '<div class="place-coordinates"><span>지도 위치</span><input data-field="lat" inputmode="decimal" placeholder="위도" /><input data-field="lng" inputmode="decimal" placeholder="경도" /><button type="button" class="tiny-btn neutral" data-pick-location>지도에서 선택</button><label><input data-field="favorite" type="checkbox" /> 다시 가고 싶은 곳</label></div>';
-    setRowValues(row, item);
+    setRowValues(row, { ...item, orderedMenu: Array.isArray(item.orderedMenu) ? item.orderedMenu.join(', ') : item.orderedMenu || '' });
+    row.querySelectorAll('[data-food-field]').forEach(field => field.hidden = !['restaurant','cafe'].includes(row.querySelector('[data-field="category"]')?.value));
     return row;
   }
   function stayRowTemplate(item) {
@@ -208,7 +209,11 @@
         status: val('status') || 'visited',
         address: val('address'), region: val('region'),
         lat: number('lat'), lng: number('lng'), memo: val('memo'),
-        rating: val('rating'), favorite: !!get('favorite')?.checked
+        rating: val('rating'), favorite: !!get('favorite')?.checked,
+        parentPlaceClientId: val('parentPlaceClientId'), cuisineType: val('cuisineType'),
+        mealType: val('mealType'), orderedMenu: val('orderedMenu').split(',').map(value => value.trim()).filter(Boolean),
+        familyFeedback: val('familyFeedback'), dadRating: val('dadRating'), suhoRating: val('suhoRating'),
+        hyeonahRating: val('hyeonahRating'), revisitRecommendation: !!get('revisitRecommendation')?.checked
       };
       return {
         clientId: row.dataset.clientId || idFor('stay'),
@@ -232,9 +237,27 @@
     placeHolder.replaceChildren();
     stayHolder.replaceChildren();
     (places || []).forEach(item => placeHolder.appendChild(placeRowTemplate(item)));
+    refreshPlaceParentOptions();
     (stays || []).forEach(item => stayHolder.appendChild(stayRowTemplate(item)));
     $('tripPlaceEmpty').style.display = places?.length ? 'none' : '';
     $('tripStayEmpty').style.display = stays?.length ? 'none' : '';
+  }
+  function refreshPlaceParentOptions() {
+    const rows = [...($('tripPlaceEditorRows')?.querySelectorAll('.trip-extra-item') || [])];
+    rows.forEach(row => {
+      const select = row.querySelector('[data-field="parentPlaceClientId"]');
+      if (!select) return;
+      const current = select.value;
+      const category = row.querySelector('[data-field="category"]')?.value || 'attraction';
+      const eligible = rows.filter(candidate => candidate !== row && ['attraction','experience'].includes(candidate.querySelector('[data-field="category"]')?.value));
+      select.innerHTML = '<option value="">여행에 직접 연결 (상위 장소 없음)</option>' + eligible.map(candidate => {
+        const name = candidate.querySelector('[data-field="name"]')?.value || '이름 미입력';
+        return '<option value="' + escapeHTML(candidate.dataset.clientId) + '">' + escapeHTML(name) + '</option>';
+      }).join('');
+      select.value = current;
+      const isFood = ['restaurant','cafe'].includes(category);
+      row.querySelectorAll('[data-food-field]').forEach(field => field.hidden = !isFood);
+    });
   }
   function populateTripFields() {
     const id = $('editTripId')?.value || '';
@@ -655,6 +678,26 @@
     $('placeCategoryFilter')?.addEventListener('change', renderPlaces);
     $('placeStatusFilter')?.addEventListener('change', renderPlaces);
     $('staySearch')?.addEventListener('input', renderStays);
+    document.addEventListener('change', event => {
+      if (event.target.matches('#tripPlaceEditorRows [data-field="category"]')) refreshPlaceParentOptions();
+    });
+    document.addEventListener('input', event => {
+      if (event.target.matches('#tripPlaceEditorRows [data-field="name"]')) refreshPlaceParentOptions();
+    });
+    document.addEventListener('click', event => {
+      if (event.target.closest('#addTripPlaceRow')) setTimeout(refreshPlaceParentOptions, 30);
+      if (event.target.closest('[data-place-tab]')) {
+        document.querySelectorAll('[data-place-tab]').forEach(button => button.classList.toggle('active', button === event.target.closest('[data-place-tab]')));
+        const tab = event.target.closest('[data-place-tab]').dataset.placeTab;
+        if (tab === 'stay') document.querySelector('.place-directory-stays')?.scrollIntoView({behavior:'smooth',block:'start'});
+        else {
+          if (tab === 'attraction') $('placeCategoryFilter').value = 'attraction';
+          else if (tab === 'food') $('placeCategoryFilter').value = 'restaurant';
+          else $('placeCategoryFilter').value = 'all';
+          renderPlaces();
+        }
+      }
+    });
   }
 
   async function loadDetails() {
