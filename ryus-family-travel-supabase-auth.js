@@ -150,7 +150,10 @@
       region: t.region || null,
       latitude: t.lat === '' || t.lat == null ? null : Number(t.lat),
       longitude: t.lng === '' || t.lng == null ? null : Number(t.lng),
-      cover_photo_id: t.coverPhotoId || null
+      cover_photo_id: t.coverPhotoId || null,
+      end_date: t.endDate || null,
+      companions: Array.isArray(t.companions) ? t.companions : [],
+      transport: t.transport || null
     };
   }
   function fromRow(r) {
@@ -165,7 +168,10 @@
       memo: r.content || '',
       lat: r.latitude == null ? '' : r.latitude,
       lng: r.longitude == null ? '' : r.longitude,
-      coverPhotoId: r.cover_photo_id || null
+      coverPhotoId: r.cover_photo_id || null,
+      endDate: r.end_date || '',
+      companions: Array.isArray(r.companions) ? r.companions : [],
+      transport: r.transport || ''
     };
   }
 
@@ -228,6 +234,107 @@
     if (!data || !['parent', 'child'].includes(data.role)) throw new Error('가족 계정 권한이 올바르지 않습니다.');
     return data;
   }
+  // ---------- Multi-place itinerary and accommodation records ----------
+  window.isFamilyPhotoParent = () => familyProfile?.role === 'parent';
+
+  window.loadFamilyTripDetails = async function() {
+    if (!client || !familyProfile) return { places: [], stays: [] };
+    const [{ data: journals, error: journalError }, { data: places, error: placeError }, { data: stays, error: stayError }] = await Promise.all([
+      client.from('journals').select('id,client_id'),
+      client.from('journal_places').select('client_id,journal_id,name,category,visit_date,visit_time,sequence,address,region,latitude,longitude,memo,rating,is_favorite,visit_status').order('visit_date', { ascending: true }).order('sequence', { ascending: true }),
+      client.from('journal_stays').select('client_id,journal_id,name,check_in,check_in_time,check_out,check_out_time,address,region,latitude,longitude,memo,rating').order('check_in', { ascending: true })
+    ]);
+    if (journalError) throw new Error('여행 연결 정보를 읽지 못했습니다: ' + journalError.message);
+    if (placeError) throw new Error('방문 장소를 불러오지 못했습니다: ' + placeError.message);
+    if (stayError) throw new Error('숙소 기록을 불러오지 못했습니다: ' + stayError.message);
+    const idMap = new Map((journals || []).map(row => [String(row.id), String(row.client_id)]));
+    return {
+      places: (places || []).filter(row => idMap.has(String(row.journal_id))).map(row => ({
+        clientId: String(row.client_id), tripId: idMap.get(String(row.journal_id)),
+        name: row.name || '', category: row.category || 'attraction',
+        visitDate: row.visit_date || '', visitTime: row.visit_time || '',
+        sequence: Number(row.sequence || 0), address: row.address || '',
+        region: row.region || '', lat: row.latitude == null ? '' : Number(row.latitude),
+        lng: row.longitude == null ? '' : Number(row.longitude), memo: row.memo || '',
+        rating: row.rating == null ? '' : Number(row.rating), favorite: !!row.is_favorite,
+        status: row.visit_status || 'visited'
+      })),
+      stays: (stays || []).filter(row => idMap.has(String(row.journal_id))).map(row => ({
+        clientId: String(row.client_id), tripId: idMap.get(String(row.journal_id)),
+        name: row.name || '', checkIn: row.check_in || '', checkInTime: row.check_in_time || '',
+        checkOut: row.check_out || '', checkOutTime: row.check_out_time || '',
+        address: row.address || '', region: row.region || '',
+        lat: row.latitude == null ? '' : Number(row.latitude),
+        lng: row.longitude == null ? '' : Number(row.longitude),
+        memo: row.memo || '', rating: row.rating == null ? '' : Number(row.rating)
+      }))
+    };
+  };
+
+  window.saveFamilyTripDetails = async function(tripId, payload = {}) {
+    if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 여행 세부 기록을 수정할 수 있습니다.');
+    if (!client) throw new Error('가족 데이터 연결이 준비되지 않았습니다.');
+    let journal = null;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const { data, error } = await client.from('journals').select('id,client_id').eq('client_id', String(tripId)).maybeSingle();
+      if (error) throw new Error('여행 기록을 연결하지 못했습니다: ' + error.message);
+      if (data) { journal = data; break; }
+      await delay(220);
+    }
+    if (!journal) throw new Error('여행 기본 정보를 클라우드에서 찾지 못했습니다. 여행 저장 후 잠시 뒤 다시 시도해 주세요.');
+
+    const tripUpdate = {
+      end_date: payload.endDate || null,
+      companions: Array.isArray(payload.companions) ? [...new Set(payload.companions.map(String).filter(Boolean))] : [],
+      transport: payload.transport || null
+    };
+    const { error: updateError } = await client.from('journals').update(tripUpdate).eq('id', journal.id);
+    if (updateError) throw new Error('여행 기간·동행 정보를 저장하지 못했습니다: ' + updateError.message);
+
+    async function replaceChildren(table, rows, kind) {
+      const { data: existing, error: readError } = await client.from(table).select('client_id').eq('journal_id', journal.id);
+      if (readError) throw new Error((kind === 'places' ? '방문 장소' : '숙소') + ' 기존 기록을 확인하지 못했습니다: ' + readError.message);
+      const normalized = (Array.isArray(rows) ? rows : []).filter(row => String(row.name || '').trim()).map((row, index) => {
+        const common = {
+          client_id: String(row.clientId || row.client_id || (kind + '_' + Date.now().toString(36) + '_' + index + '_' + Math.random().toString(36).slice(2, 7))),
+          journal_id: journal.id,
+          name: String(row.name).trim(),
+          address: row.address || null, region: row.region || null,
+          latitude: row.lat === '' || row.lat == null ? null : Number(row.lat),
+          longitude: row.lng === '' || row.lng == null ? null : Number(row.lng),
+          memo: row.memo || null,
+          rating: row.rating === '' || row.rating == null ? null : Number(row.rating)
+        };
+        if (kind === 'places') return {
+          ...common, category: row.category || 'attraction',
+          visit_date: row.visitDate || null, visit_time: row.visitTime || null,
+          sequence: Number(row.sequence ?? index), is_favorite: !!row.favorite,
+          visit_status: row.status === 'planned' ? 'planned' : 'visited'
+        };
+        return {
+          ...common, check_in: row.checkIn, check_in_time: row.checkInTime || null,
+          check_out: row.checkOut, check_out_time: row.checkOutTime || null
+        };
+      });
+
+      const wanted = new Set(normalized.map(row => row.client_id));
+      const obsolete = (existing || []).map(row => String(row.client_id)).filter(id => !wanted.has(id));
+      if (obsolete.length) {
+        const { error: deleteError } = await client.from(table).delete().eq('journal_id', journal.id).in('client_id', obsolete);
+        if (deleteError) throw new Error((kind === 'places' ? '방문 장소' : '숙소') + ' 삭제 내용을 저장하지 못했습니다: ' + deleteError.message);
+      }
+      if (normalized.length) {
+        const { error: upsertError } = await client.from(table).upsert(normalized, { onConflict: 'client_id' });
+        if (upsertError) throw new Error((kind === 'places' ? '방문 장소' : '숙소') + ' 내용을 저장하지 못했습니다: ' + upsertError.message);
+      }
+      return normalized;
+    }
+
+    await replaceChildren('journal_places', payload.places, 'places');
+    await replaceChildren('journal_stays', payload.stays, 'stays');
+    return true;
+  };
+
   async function loadDeletedTripIds() {
     const { data, error } = await client
       .from('deleted_journals')
@@ -238,7 +345,7 @@
   async function loadCloudTrips(deletedIds = new Set()) {
     const { data, error } = await client
       .from('journals')
-      .select('id,client_id,title,location,visit_date,content,trip_type,country,region,latitude,longitude,cover_photo_id')
+      .select('id,client_id,title,location,visit_date,content,trip_type,country,region,latitude,longitude,cover_photo_id,end_date,companions,transport')
       .order('visit_date', { ascending: false });
     if (error) throw new Error('가족 여행 기록을 불러오지 못했습니다: ' + error.message);
     return (data || []).filter(row => !deletedIds.has(String(row.client_id))).map(fromRow);
