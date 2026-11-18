@@ -142,3 +142,36 @@ body:before{
   .stat{border-radius:16px}
   .map-panel,.trip-panel,.side-panel{border-color:#f0e1d7}
 }
+
+
+/* Original family travel friends and gentle paper texture */
+body:before{z-index:0}
+.app{position:relative;z-index:1}
+.hero-art{overflow:visible}
+.hero-art .family-friends{
+  position:absolute!important;z-index:5!important;right:1%!important;bottom:-1px!important;
+  width:48%!important;height:auto!important;max-height:84%!important;
+  filter:drop-shadow(0 5px 5px rgba(112,83,69,.13));
+  overflow:visible!important;
+}
+.hero-art-note{z-index:6}
+.hero-sparkle{z-index:4}
+.hero-cover{isolation:isolate}
+.hero-cover .hero-copy{z-index:7}
+.sidebar:after{
+  content:"✿  ♡  ✧";display:block;margin:13px 8px 2px;text-align:center;
+  color:#e6b5a9;font-size:13px;letter-spacing:8px;opacity:.8
+}
+.trip-panel .section-head h3:before{content:"📷 ";font-size:16px}
+.map-panel .section-head h3:before{content:"🧭 ";font-size:16px}
+.side-panel{position:relative;overflow:hidden}
+.side-panel:after{
+  content:"✿";position:absolute;right:13px;top:9px;color:#f4d5c8;
+  font-size:22px;transform:rotate(15deg);pointer-events:none
+}
+@media(max-width:900px){
+  .hero-art .family-friends{width:53%!important;max-height:77%!important;right:0!important}
+}
+@media(max-width:720px){
+  .hero-art .family-friends{width:54%!important;max-height:82%!important;right:-3%!important;bottom:0!important}
+}
