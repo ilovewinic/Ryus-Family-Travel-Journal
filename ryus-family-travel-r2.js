@@ -19,6 +19,7 @@
   let readyForSync = false;
   let syncRunning = false;
   let syncTimer = null;
+  const photoBlobCache = new Map();
 
   function readSavedState() {
     try {
@@ -147,6 +148,31 @@
     return await rest('journal_photos?select=id,journal_id,object_key,file_name,content_type,byte_size,sort_order,is_print_selected&order=sort_order.asc');
   }
 
+  window.loadFamilyPhotoBlobById = async function(photoId) {
+    const id = String(photoId || '');
+    if (!id) return null;
+    if (photoBlobCache.has(id)) return photoBlobCache.get(id);
+    let blob = null;
+    try { blob = await getLocalBlob(id); } catch (_) {}
+    if (blob) return blob;
+
+    const state = readSavedState();
+    const photo = state.photos.find(item => String(item.id) === id);
+    let objectKey = photo?.objectKey || '';
+    if (!objectKey) {
+      const rows = await getPhotoRows();
+      const row = rows.find(item => photoIdFromKey(item.object_key, item.id) === id);
+      objectKey = row?.object_key || '';
+    }
+    if (!objectKey) return null;
+
+    blob = await callWorker(objectKey, 'GET');
+    photoBlobCache.set(id, blob);
+    try { await putLocalBlob(id, blob); }
+    catch (error) { console.warn('[R2 사진 연동] 사진을 메모리 캐시에 보관합니다.', error); }
+    return blob;
+  };
+
   async function getJournalRows() {
     return await rest('journals?select=id,client_id');
   }
@@ -171,25 +197,34 @@
         const tripId = clientIdByJournalId.get(String(row.journal_id));
         if (!tripId) return;
         const photoId = photoIdFromKey(row.object_key, row.id);
+        const metadata = {
+          id: photoId,
+          tripId,
+          name: row.file_name || '여행 사진',
+          printSelected: !!row.is_print_selected,
+          type: row.content_type || 'image/jpeg',
+          size: Number(row.byte_size || 0),
+          objectKey: row.object_key
+        };
+        // Keep the album/card information even if this device cannot cache the file yet.
+        photoById.set(photoId, metadata);
         try {
-          let blob = await getLocalBlob(photoId);
-          if (!blob) {
-            blob = await callWorker(row.object_key, 'GET');
+          let blob = null;
+          try { blob = await getLocalBlob(photoId); } catch (_) {}
+          if (!blob) blob = await callWorker(row.object_key, 'GET');
+          metadata.type = row.content_type || blob.type || 'image/jpeg';
+          metadata.size = Number(row.byte_size || blob.size || 0);
+          try {
             await putLocalBlob(photoId, blob);
+          } catch (storageError) {
+            // A memory copy allows this session to display the photo on restrictive mobile storage.
+            photoBlobCache.set(String(photoId), blob);
+            console.warn('[R2 사진 연동] 기기 저장소 캐시는 생략하고 메모리에서 표시합니다.', storageError);
           }
-          photoById.set(photoId, {
-            id: photoId,
-            tripId,
-            name: row.file_name || '여행 사진',
-            printSelected: !!row.is_print_selected,
-            type: row.content_type || blob.type || 'image/jpeg',
-            size: Number(row.byte_size || blob.size || 0),
-            objectKey: row.object_key
-          });
           restored += 1;
         } catch (error) {
           failed += 1;
-          console.warn('[R2 사진 연동] 사진을 내려받지 못했습니다:', row.object_key, error);
+          console.warn('[R2 사진 연동] 사진 파일을 아직 내려받지 못했습니다:', row.object_key, error);
         }
       }));
     }
@@ -336,7 +371,8 @@ window.isFamilyPhotoParent = () => familyRole === 'parent';
     if (!accessToken) throw new Error('Supabase 로그인 토큰을 찾지 못했습니다.');
     familyRole = await getFamilyRole();
     const result = await restoreRemotePhotos();
-    readyForSync = result.failed === 0;
+    // Remote metadata was read successfully; a failed image fetch should not disable normal photo sync.
+    readyForSync = true;
     installStorageWatcher();
 
     if (familyRole === 'parent') {
