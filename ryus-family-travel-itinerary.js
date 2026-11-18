@@ -268,7 +268,7 @@
   function refreshStayPlaceOptions() {
     const places = [...($('tripPlaceEditorRows')?.querySelectorAll('.trip-extra-item') || [])].filter(row => ['attraction','experience'].includes(row.querySelector('[data-field="category"]')?.value));
     [...($('tripStayEditorRows')?.querySelectorAll('.trip-extra-item') || [])].forEach(row => {
-      const select = row.querySelector('[data-field="relatedPlaceClientId']');
+      const select = row.querySelector('[data-field="relatedPlaceClientId"]');
       if (!select) return;
       const current = select.value;
       select.innerHTML = '<option value="">여행 전체에 연결</option>' + places.map(place => '<option value="' + escapeHTML(place.dataset.clientId) + '">' + escapeHTML(place.querySelector('[data-field="name"]')?.value || '이름 미입력') + '</option>').join('');
