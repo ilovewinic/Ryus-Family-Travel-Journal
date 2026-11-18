@@ -163,7 +163,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 }
 
 </style>
-  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=mobile-20261118-1" />
+  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=mobile-20261118-2" />
 </head>
 <body>
 <div class="app">
@@ -361,7 +361,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
 사진 삭제 🗑
 </button><button class="secondary" id="closeLightbox">닫기</button></div></div></div>
 <div class="toast" id="toast"></div>
-<script src="./ryus-family-travel-supabase-auth.js?v=mobile-20261118-1"></script>
+<script src="./ryus-family-travel-supabase-auth.js?v=mobile-20261118-2"></script>
 <script src="./ryus-family-travel-r2.js?v=mobile-20261118-1"></script>
   <script src="./ryus-family-travel-detail-cover.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -406,10 +406,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   function closeLightbox() {
     const ownsHistory = history.state?.[OVERLAY_HISTORY_KEY] === 'photo';
     closeLightboxVisual();
-    if (ownsHistory) {
-      ignoreOverlayPopstate = true;
-      history.back();
-    }
+    if (ownsHistory) history.back();
   }
   function closeTripDetailVisual() {
     $('tripDetailModal').classList.remove('open');
@@ -617,9 +614,11 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       image.dataset.maxside = '1600';
       image.removeAttribute('src');
       image.style.opacity = '0';
+      image.parentElement?.style.removeProperty('--feature-photo-fill');
       hydrateImages($('homeFeaturedBanner')).then(() => {
         if (String(image.dataset.photoId || '') === String(photo.id) && image.getAttribute('src')) {
           image.style.opacity = '1';
+          image.parentElement?.style.setProperty('--feature-photo-fill', `url("${image.src}")`);
         }
       });
     } else {
@@ -627,6 +626,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       delete image.dataset.maxside;
       image.removeAttribute('src');
       image.style.opacity = '0';
+      image.parentElement?.style.removeProperty('--feature-photo-fill');
     }
     title.textContent = trip.title || '우리 가족의 여행';
     meta.textContent = `${dateLabel(trip.date)} · ${trip.type === 'overseas' ? (trip.country || '해외') : (trip.region || trip.place || '국내 여행')}`;
@@ -996,7 +996,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     pendingFiles=[];
     renderPendingPhotoPreview();
     $('tripFiles').value='';
-    persist();closeModal();renderAll();toast('여행 기록을 저장했어요! 🌼');
+    persist();closeModal();renderAll();
+    if ($('tripDetailModal').classList.contains('open')) openTripDetail(id);
+    toast('여행 기록을 저장했어요! 🌼');
   });
   async function deleteTrip(id){const related=photos.filter(p=>p.tripId===id);for(const p of related){await deleteBlob(p.id).catch(()=>{});photoBlobs.delete(p.id);}photos=photos.filter(p=>p.tripId!==id);trips=trips.filter(t=>t.id!==id);persist();closeModal();renderAll();toast('여행 기록과 연결 사진을 삭제했어요.');}
   $('deleteTripBtn').addEventListener('click',()=>{const id=$('editTripId').value;if(id&&confirm('이 여행 기록과 연결된 사진을 모두 삭제할까요? 이 브라우저의 미리보기 데이터에서만 삭제됩니다.'))deleteTrip(id);});
@@ -1052,6 +1054,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     });
   });
 }
+  window.refreshFamilyTripDetail = function(id) {
+    if ($('tripDetailModal')?.classList.contains('open')) openTripDetail(id || currentTripDetailId);
+  };
   async function openLightbox(id) {
     const p = getPhoto(String(id));
     if (!p) return;
@@ -1142,8 +1147,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const trip = getTrip(currentTripDetailId);
     if (!trip) return;
 
-    closeTripDetailVisual();
-    openModal(trip, { replaceHistory: true });
+    // Keep the trip detail open underneath the editor. Back closes only the editor,
+    // then a second Back closes the detail screen.
+    openModal(trip);
   });
  $('closeLightbox').addEventListener('click', closeLightbox);
  $('lightbox').addEventListener('click', e => { if (e.target === $('lightbox')) closeLightbox(); });
