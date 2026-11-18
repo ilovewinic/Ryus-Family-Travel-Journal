@@ -125,6 +125,7 @@
   let coverRenderToken = 0;
   let cardCoverRenderToken = 0;
   const coverObjectURLs = new Map();
+  let chooserObjectURLs = [];
 
   function localState() {
     try {
@@ -579,7 +580,7 @@
       const chooser = document.createElement('div');
       chooser.id = 'representativePhotoChooser';
       chooser.className = 'family-extra-panel';
-      chooser.innerHTML = '<h4>🌟 여행 대표사진</h4><p class="family-extra-help">카드에 표시할 사진을 이곳에서 따로 선택하세요. 별도 파일을 중복 저장하지 않고, 이 여행에 올린 사진 중 하나를 대표사진으로 지정합니다.</p><div id="coverChoiceGrid" class="cover-choice-grid"></div><button type="button" class="secondary" id="clearCoverChoice" style="margin-top:10px">대표사진 선택 해제</button>';
+      chooser.innerHTML = '<h4>📷 이 여행의 사진 관리</h4><p class="family-extra-help">저장된 사진을 확인하고, 각 사진을 대표사진으로 지정하거나 삭제할 수 있습니다. 대표사진은 별도 파일을 만들지 않고 이 앨범의 사진 중 한 장을 지정합니다. 사진을 삭제하면 가족 앨범에서도 삭제됩니다.</p><div id="coverChoiceGrid" class="cover-choice-grid photo-manage-grid"></div><button type="button" class="secondary" id="clearCoverChoice" style="margin-top:10px">대표사진 지정 해제</button>';
       existingPhotos.insertAdjacentElement('afterend', chooser);
     }
 
@@ -654,6 +655,10 @@
       const removeButton = event.target.closest?.('[data-delete-expense]');
       if (removeButton) deleteExpense(removeButton).catch(showEnhancementError);
       if (event.target.closest?.('#clearCoverChoice')) setRepresentativePhoto(null).catch(showEnhancementError);
+      const setCover = event.target.closest?.('[data-set-cover-photo]');
+      if (setCover) setRepresentativePhoto(String(setCover.dataset.setCoverPhoto)).catch(showEnhancementError);
+      const deleteTripPhoto = event.target.closest?.('[data-delete-trip-photo]');
+      if (deleteTripPhoto) deleteTripPhotoFromEditor(String(deleteTripPhoto.dataset.deleteTripPhoto)).catch(showEnhancementError);
     }, true);
 
     const deleteTripButton = document.getElementById('deleteTripBtn');
@@ -686,41 +691,109 @@
     const holder = document.getElementById('coverChoiceGrid');
     if (!holder) return;
     const token = ++coverRenderToken;
+    chooserObjectURLs.forEach(url => URL.revokeObjectURL(url));
+    chooserObjectURLs = [];
     const tripId = document.getElementById('editTripId')?.value || '';
     if (!tripId) {
-      holder.innerHTML = '<div class="expense-empty">여행 기록을 먼저 저장해 주세요. 사진을 추가한 뒤 수정 화면에서 대표사진을 지정할 수 있습니다.</div>';
+      holder.innerHTML = '<div class="expense-empty">여행 기록을 먼저 저장해 주세요. 사진을 추가한 뒤 이곳에서 관리할 수 있습니다.</div>';
       return;
     }
     const state = localState();
     const trip = state.trips.find(item => String(item.id) === String(tripId));
     const list = state.photos.filter(photo => String(photo.tripId) === String(tripId));
     if (!list.length) {
-      holder.innerHTML = '<div class="expense-empty">이 여행에 등록된 사진이 없습니다. 사진을 추가하고 저장하면 대표사진을 고를 수 있습니다.</div>';
+      holder.innerHTML = '<div class="expense-empty">아직 등록된 사진이 없습니다. 위에서 사진을 선택하고 여행 기록을 저장하면 여기에 표시됩니다.</div>';
       return;
     }
+
     holder.innerHTML = '';
-    for (const photo of list) {
+    for (let index = 0; index < list.length; index += 1) {
+      const photo = list[index];
       let blob = null;
       try { blob = await readLocalPhotoBlob(photo.id); } catch (_) {}
       if (!blob && typeof window.loadFamilyPhotoBlobById === 'function') {
         try { blob = await window.loadFamilyPhotoBlobById(photo.id); } catch (_) {}
       }
       if (token !== coverRenderToken) return;
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'cover-choice' + (String(trip?.coverPhotoId || '') === String(photo.id) ? ' selected' : '');
-      const img = document.createElement('img');
-      img.alt = photo.name || '여행 사진';
-      if (blob) img.src = URL.createObjectURL(blob);
-      else img.alt = '사진을 불러오지 못했습니다';
-      const label = document.createElement('span');
-      label.textContent = photo.name || '여행 사진';
-      const note = document.createElement('small');
-      note.textContent = String(trip?.coverPhotoId || '') === String(photo.id) ? '현재 대표사진' : '대표사진으로 선택';
-      button.append(img, label, note);
-      button.addEventListener('click', () => setRepresentativePhoto(photo.id).catch(showEnhancementError));
-      holder.appendChild(button);
+
+      const isSelected = String(trip?.coverPhotoId || '') === String(photo.id);
+      const isDefaultDisplay = !trip?.coverPhotoId && index === 0;
+      const card = document.createElement('article');
+      card.className = 'photo-manage-card' + (isSelected ? ' is-selected' : '');
+
+      const preview = document.createElement('div');
+      preview.className = 'photo-manage-preview';
+      if (blob) {
+        const img = document.createElement('img');
+        img.alt = photo.name || '여행 사진';
+        const url = URL.createObjectURL(blob);
+        chooserObjectURLs.push(url);
+        img.src = url;
+        preview.appendChild(img);
+      } else {
+        const missing = document.createElement('span');
+        missing.textContent = '사진을 불러오지 못했습니다';
+        preview.appendChild(missing);
+      }
+
+      const details = document.createElement('div');
+      details.className = 'photo-manage-details';
+      const name = document.createElement('b');
+      name.textContent = photo.name || '여행 사진';
+      name.title = photo.name || '여행 사진';
+      const status = document.createElement('small');
+      status.textContent = isSelected ? '⭐ 현재 대표사진' : (isDefaultDisplay ? '기본 카드 표시 사진' : '앨범 사진');
+      details.append(name, status);
+
+      const actions = document.createElement('div');
+      actions.className = 'photo-manage-actions';
+      const choose = document.createElement('button');
+      choose.type = 'button';
+      choose.className = 'photo-manage-set';
+      choose.textContent = isSelected ? '대표사진 지정됨' : '대표사진으로 지정';
+      choose.dataset.setCoverPhoto = String(photo.id);
+      choose.disabled = isSelected;
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'photo-manage-delete';
+      remove.textContent = '사진 삭제';
+      remove.dataset.deleteTripPhoto = String(photo.id);
+
+      actions.append(choose, remove);
+      card.append(preview, details, actions);
+      holder.appendChild(card);
     }
+  }
+
+  async function deleteTripPhotoFromEditor(photoId) {
+    if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 사진을 삭제할 수 있습니다.');
+    const tripId = document.getElementById('editTripId')?.value || '';
+    const before = localState();
+    const trip = before.trips.find(item => String(item.id) === String(tripId));
+    const photo = before.photos.find(item => String(item.id) === String(photoId) && String(item.tripId) === String(tripId));
+    if (!trip || !photo) throw new Error('삭제할 사진을 현재 여행에서 찾지 못했습니다.');
+    if (!confirm('이 사진을 가족 앨범에서 완전히 삭제할까요? 다른 가족 기기에서도 삭제됩니다.')) return;
+
+    if (String(trip.coverPhotoId || '') === String(photoId)) {
+      await setRepresentativePhoto(null);
+    }
+    if (typeof window.deleteFamilyPhotoFromCloud !== 'function') {
+      throw new Error('사진 삭제 서비스를 찾지 못했습니다. 다시 로그인한 뒤 시도해 주세요.');
+    }
+    await window.deleteFamilyPhotoFromCloud(photoId);
+
+    const state = localState();
+    state.photos = state.photos.filter(item => String(item.id) !== String(photoId));
+    saveLocalState(state);
+    await deleteLocalPhotoBlobs([String(photoId)]);
+    window.clearFamilyPhotoBlobCache?.(photoId);
+
+    await window.refreshFamilyTravelHome?.();
+    await renderRepresentativeChooser();
+    await renderCardCovers();
+    window.refreshFamilyTripDetail?.(tripId);
+    toast('사진을 가족 앨범에서 삭제했습니다.');
   }
 
   async function setRepresentativePhoto(photoId) {
@@ -743,6 +816,7 @@
     await window.refreshFamilyTravelHome?.();
     await renderRepresentativeChooser();
     renderCardCovers();
+    window.refreshFamilyTripDetail?.(tripId);
   }
 
   async function renderCardCovers() {
