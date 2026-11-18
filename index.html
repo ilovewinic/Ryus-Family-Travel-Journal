@@ -850,6 +850,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   async function deleteTrip(id){const related=photos.filter(p=>p.tripId===id);for(const p of related){await deleteBlob(p.id).catch(()=>{});photoBlobs.delete(p.id);}photos=photos.filter(p=>p.tripId!==id);trips=trips.filter(t=>t.id!==id);persist();closeModal();renderAll();toast('여행 기록과 연결 사진을 삭제했어요.');}
   $('deleteTripBtn').addEventListener('click',()=>{const id=$('editTripId').value;if(id&&confirm('이 여행 기록과 연결된 사진을 모두 삭제할까요? 이 브라우저의 미리보기 데이터에서만 삭제됩니다.'))deleteTrip(id);});
  function openTripDetail(id) {
+  window.__familyTravelLastOpenedTripId = String(id);
   const t = getTrip(id);
   if (!t) return;
 
@@ -1033,5 +1034,6 @@ style="background:#fff0ec;color:#bd655b;display:none;">
 window.__familyAuthReady.then(init);
 })();
 </script>
+<script src="./ryus-family-travel-itinerary.js"></script>
 </body>
 </html>
