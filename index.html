@@ -389,6 +389,14 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let mapMarkers = [];
   const OVERLAY_HISTORY_KEY = '__ryusFamilyJournalOverlay';
   let lightboxOpenToken = 0;
+  // Normalize the document's current history entry on every page load.
+  // This also removes stale modal markers left behind by an interrupted mobile session.
+  (() => {
+    const current = history.state && typeof history.state === 'object' ? history.state : {};
+    if (current[OVERLAY_HISTORY_KEY] !== 'app') {
+      history.replaceState({ ...current, [OVERLAY_HISTORY_KEY]: 'app' }, '', location.href);
+    }
+  })();
 
   function pushOverlayHistory(type) {
     const current = history.state && typeof history.state === 'object' ? history.state : {};
