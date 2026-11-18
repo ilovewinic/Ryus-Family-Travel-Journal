@@ -353,6 +353,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let currentLightboxPhoto = null;
   let currentTripDetailId = null;
   let homeFeatureIndex = 0;
+  let homeFeatureTripId = null;
   let mapMarkers = [];
 
   function toast(message) {
@@ -492,6 +493,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     if (!image || !title || !meta || !place || !dots) return;
     const candidates = [...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
     if (!candidates.length) {
+      homeFeatureTripId = null;
       image.removeAttribute('src');
       image.style.opacity = '0';
       title.textContent = '함께한 여행, 오래도록 기억해요 ♡';
@@ -502,6 +504,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     }
     homeFeatureIndex = ((homeFeatureIndex % candidates.length) + candidates.length) % candidates.length;
     const trip = candidates[homeFeatureIndex];
+    homeFeatureTripId = trip.id;
     const tripPhotos = getTripPhotos(trip.id);
     const photo = tripPhotos.find(p => String(p.id) === String(trip.coverPhotoId)) || tripPhotos[0];
     const imageUrl = photo ? blobURL(photo.id) : '';
@@ -539,7 +542,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   }
   function bindTripCards(root) {root.querySelectorAll('[data-trip-card]').forEach(el=>el.addEventListener('click',()=>openTripDetail(el.dataset.tripCard)));}
   function renderTrips() {
-    const recent=[...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,4);
+    const recent=[...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,3);
     $('recentTrips').innerHTML=recent.length?recent.map(tripCard).join(''):'<div class="empty-card"><b>아직 등록한 여행이 없어요.</b>첫 가족 여행을 기록하면 이곳에 카드가 생깁니다.</div>';
     bindTripCards($('recentTrips'));
     const y=$('tripYearFilter').value||'all',ty=$('tripTypeFilter').value||'all';
@@ -833,6 +836,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('mapTypeFilter').addEventListener('change',renderMap);$('mapYearFilter').addEventListener('change',renderMap);$('tripYearFilter').addEventListener('change',renderTrips);$('tripTypeFilter').addEventListener('change',renderTrips);
   $('homeFeaturePrev')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+count-1)%count;renderHomeFeatured();}});
   $('homeFeatureNext')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+1)%count;renderHomeFeatured();}});
+  $('homeFeatureOpen')?.addEventListener('click',()=>{if(homeFeatureTripId)openTripDetail(homeFeatureTripId);});
   async function init(){
     try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');trips=Array.isArray(saved.trips)?saved.trips:[];photos=Array.isArray(saved.photos)?saved.photos:[];}catch(e){console.warn(e);trips=[];photos=[];}
     await loadBlobURLs();initMap();renderAll();
