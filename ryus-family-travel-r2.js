@@ -317,7 +317,8 @@
   }
 
 window.isFamilyPhotoParent = () => familyRole === 'parent';
-  
+  window.clearFamilyPhotoBlobCache = photoId => photoBlobCache.delete(String(photoId || ''));
+
   window.deleteFamilyPhotoFromCloud = async function(photoId) {
     if (familyRole !== 'parent') {
       throw new Error('부모 계정에서만 사진을 삭제할 수 있습니다.');
@@ -328,7 +329,10 @@ window.isFamilyPhotoParent = () => familyRole === 'parent';
       photoIdFromKey(item.object_key, item.id) === String(photoId)
     );
 
-    if (!row) return true;
+    if (!row) {
+      photoBlobCache.delete(String(photoId));
+      return true;
+    }
 
     await callWorker(row.object_key, 'DELETE');
 
@@ -340,6 +344,7 @@ window.isFamilyPhotoParent = () => familyRole === 'parent';
       }
     );
 
+    photoBlobCache.delete(String(photoId));
     return true;
   };
   
