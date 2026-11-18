@@ -233,7 +233,7 @@
     const banner = document.getElementById('homeFeaturedBanner');
     if (!banner) return;
     if (window.matchMedia && window.matchMedia('(hover: hover)').matches && banner.matches(':hover')) return;
-    if (banner.contains(document.activeElement)) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const settings = document.getElementById('homeFeaturedSettingsModal');
     const edit = document.getElementById('tripModal');
     const detail = document.getElementById('tripDetailModal');
