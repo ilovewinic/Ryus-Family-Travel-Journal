@@ -702,6 +702,9 @@
     for (const photo of list) {
       let blob = null;
       try { blob = await readLocalPhotoBlob(photo.id); } catch (_) {}
+      if (!blob && typeof window.loadFamilyPhotoBlobById === 'function') {
+        try { blob = await window.loadFamilyPhotoBlobById(photo.id); } catch (_) {}
+      }
       if (token !== coverRenderToken) return;
       const button = document.createElement('button');
       button.type = 'button';
@@ -800,6 +803,9 @@
 
       let blob = null;
       try { blob = await readLocalPhotoBlob(displayPhoto.id); } catch (_) {}
+      if (!blob && typeof window.loadFamilyPhotoBlobById === 'function') {
+        try { blob = await window.loadFamilyPhotoBlobById(displayPhoto.id); } catch (_) {}
+      }
       if (passToken !== cardCoverRenderToken) return;
       if (!blob) {
         // Do not leave a now-obsolete representative visible while a replacement loads.
