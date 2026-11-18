@@ -138,6 +138,7 @@
     row.className = 'trip-extra-item';
     row.dataset.kind = 'place';
     row.dataset.clientId = item.clientId || idFor('place');
+    row.dataset.parentPlaceClientId = item.parentPlaceClientId || '';
     row.innerHTML =
       '<div class="trip-extra-item-head"><b>방문 장소</b><button type="button" class="extra-remove-button" data-remove-row>삭제</button></div>' +
       '<div class="trip-extra-fields">' +
@@ -170,6 +171,7 @@
     row.className = 'trip-extra-item';
     row.dataset.kind = 'stay';
     row.dataset.clientId = item.clientId || idFor('stay');
+    row.dataset.relatedPlaceClientId = item.relatedPlaceClientId || '';
     row.innerHTML =
       '<div class="trip-extra-item-head"><b>숙소</b><button type="button" class="extra-remove-button" data-remove-row>삭제</button></div>' +
       '<div class="trip-extra-fields">' +
@@ -181,7 +183,8 @@
         '<label class="wide"><span>주소 / 위치</span><input data-field="address" placeholder="숙소 주소 또는 지역" /></label>' +
         '<label><span>시·도 / 지역</span><input data-field="region" placeholder="예: 강원도 태백시" /></label>' +
         '<label><span>별점</span><select data-field="rating"><option value="">평가 안 함</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label>' +
-        '<label class="wide"><span>숙소 메모</span><textarea data-field="memo" rows="2" maxlength="1000" placeholder="객실, 조식, 주차, 수영장, 아이들 만족도 등"></textarea></label>' +
+        '<label class="wide"><span>어느 장소와 연결할까요? (선택)</span><select data-field="relatedPlaceClientId"><option value="">여행 전체에 연결</option></select></label>' +
+      '<label class="wide"><span>숙소 메모</span><textarea data-field="memo" rows="2" maxlength="1000" placeholder="객실, 조식, 주차, 수영장, 아이들 만족도 등"></textarea></label>' +
       '</div>' +
       '<div class="stay-row-foot"><span data-night-count>숙박일 수를 계산합니다.</span><div class="place-coordinates"><input data-field="lat" inputmode="decimal" placeholder="위도" /><input data-field="lng" inputmode="decimal" placeholder="경도" /><button type="button" class="tiny-btn neutral" data-pick-location>지도에서 선택</button></div></div>';
     setRowValues(row, item);
@@ -217,7 +220,7 @@
       };
       return {
         clientId: row.dataset.clientId || idFor('stay'),
-        name: val('name').trim(), checkIn: val('checkIn'), checkInTime: val('checkInTime'),
+        name: val('name').trim(), relatedPlaceClientId: val('relatedPlaceClientId'), checkIn: val('checkIn'), checkInTime: val('checkInTime'),
         checkOut: val('checkOut'), checkOutTime: val('checkOutTime'),
         address: val('address'), region: val('region'),
         lat: number('lat'), lng: number('lng'), memo: val('memo'), rating: val('rating')
@@ -239,6 +242,8 @@
     (places || []).forEach(item => placeHolder.appendChild(placeRowTemplate(item)));
     refreshPlaceParentOptions();
     (stays || []).forEach(item => stayHolder.appendChild(stayRowTemplate(item)));
+    refreshPlaceParentOptions();
+    refreshStayPlaceOptions();
     $('tripPlaceEmpty').style.display = places?.length ? 'none' : '';
     $('tripStayEmpty').style.display = stays?.length ? 'none' : '';
   }
@@ -247,7 +252,7 @@
     rows.forEach(row => {
       const select = row.querySelector('[data-field="parentPlaceClientId"]');
       if (!select) return;
-      const current = select.value;
+      const current = select.value || row.dataset.parentPlaceClientId || '';
       const category = row.querySelector('[data-field="category"]')?.value || 'attraction';
       const eligible = rows.filter(candidate => candidate !== row && ['attraction','experience'].includes(candidate.querySelector('[data-field="category"]')?.value));
       select.innerHTML = '<option value="">여행에 직접 연결 (상위 장소 없음)</option>' + eligible.map(candidate => {
@@ -255,8 +260,19 @@
         return '<option value="' + escapeHTML(candidate.dataset.clientId) + '">' + escapeHTML(name) + '</option>';
       }).join('');
       select.value = current;
+      row.dataset.parentPlaceClientId = current;
       const isFood = ['restaurant','cafe'].includes(category);
       row.querySelectorAll('[data-food-field]').forEach(field => field.hidden = !isFood);
+    });
+  }
+  function refreshStayPlaceOptions() {
+    const places = [...($('tripPlaceEditorRows')?.querySelectorAll('.trip-extra-item') || [])].filter(row => ['attraction','experience'].includes(row.querySelector('[data-field="category"]')?.value));
+    [...($('tripStayEditorRows')?.querySelectorAll('.trip-extra-item') || [])].forEach(row => {
+      const select = row.querySelector('[data-field="relatedPlaceClientId']');
+      if (!select) return;
+      const current = select.value;
+      select.innerHTML = '<option value="">여행 전체에 연결</option>' + places.map(place => '<option value="' + escapeHTML(place.dataset.clientId) + '">' + escapeHTML(place.querySelector('[data-field="name"]')?.value || '이름 미입력') + '</option>').join('');
+      select.value = current || row.dataset.relatedPlaceClientId || '';
     });
   }
   function populateTripFields() {
@@ -440,7 +456,7 @@
   function closeCoordinatePicker() { $('familyCoordinatePicker')?.classList.remove('open'); state.pickerTarget = null; }
 
   function categoryLabel(category) {
-    return ({ attraction: '관광지', restaurant: '식당', cafe: '카페', experience: '체험', shopping: '쇼핑', other: '기타' })[category] || '기타';
+    return ({ attraction: '관광지', restaurant: '맛집', cafe: '카페', experience: '체험', shopping: '쇼핑', other: '기타' })[category] || '기타';
   }
   function locationLabel(item) { return item.region || item.address || tripById(item.tripId)?.region || tripById(item.tripId)?.place || ''; }
   function groupPlaces(rows) {
@@ -699,13 +715,13 @@
     $('placeStatusFilter')?.addEventListener('change', renderPlaces);
     $('staySearch')?.addEventListener('input', renderStays);
     document.addEventListener('change', event => {
-      if (event.target.matches('#tripPlaceEditorRows [data-field="category"]')) refreshPlaceParentOptions();
+      if (event.target.matches('#tripPlaceEditorRows [data-field="category"]')) { refreshPlaceParentOptions(); refreshStayPlaceOptions(); }
     });
     document.addEventListener('input', event => {
-      if (event.target.matches('#tripPlaceEditorRows [data-field="name"]')) refreshPlaceParentOptions();
+      if (event.target.matches('#tripPlaceEditorRows [data-field="name"]')) { refreshPlaceParentOptions(); refreshStayPlaceOptions(); }
     });
     document.addEventListener('click', event => {
-      if (event.target.closest('#addTripPlaceRow')) setTimeout(refreshPlaceParentOptions, 30);
+      if (event.target.closest('#addTripPlaceRow')) setTimeout(() => { refreshPlaceParentOptions(); refreshStayPlaceOptions(); }, 30);
       if (event.target.closest('[data-place-tab]')) {
         document.querySelectorAll('[data-place-tab]').forEach(button => button.classList.toggle('active', button === event.target.closest('[data-place-tab]')));
         const tab = event.target.closest('[data-place-tab]').dataset.placeTab;
