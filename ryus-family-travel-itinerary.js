@@ -156,7 +156,7 @@
         '<label><span>별점</span><select data-field="rating"><option value="">평가 안 함</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label>' +
         '<label class="wide"><span>기억할 내용</span><textarea data-field="memo" rows="2" maxlength="1000" placeholder="맛있었던 메뉴, 아이들 반응, 다시 가고 싶은 이유 등"></textarea></label>' +
       '</div>' +
-      '<label class="wide"><span>어느 장소와 연결할까요?</span><select data-field="parentPlaceClientId"><option value="">여행에 직접 연결 (상위 장소 없음)</option></select></label>' +
+      '<div class="trip-extra-fields"><label class="wide"><span>상위 관광지와 연결 (선택)</span><select data-field="parentPlaceClientId"><option value="">여행에 직접 연결</option></select></label></div>' +
       '<div class="place-food-review food-only" data-food-field>' +
         '<label class="food-check"><input data-field="revisitRecommendation" type="checkbox" /> 가족이 다시 가고 싶은 맛집</label>' +
         '<div class="family-rating-grid"><label>아빠 <select data-field="dadRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label><label>수호 <select data-field="suhoRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label><label>현아 <select data-field="hyeonahRating"><option value="">-</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select></label></div>' +
@@ -176,7 +176,8 @@
       '<div class="trip-extra-item-head"><b>숙소</b><button type="button" class="extra-remove-button" data-remove-row>삭제</button></div>' +
       '<div class="trip-extra-fields">' +
         '<label class="wide"><span>숙소 이름 *</span><input data-field="name" maxlength="120" placeholder="예: 태백호텔, 라마다 호텔" /></label>' +
-        '<label><span>체크인 날짜 *</span><input data-field="checkIn" type="date" /></label>' +
+        '<label><span>숙소 종류</span><select data-field="stayType"><option value="">선택 안 함</option><option value="호텔">호텔</option><option value="리조트">리조트</option><option value="펜션">펜션</option><option value="캠핑">캠핑</option><option value="게스트하우스">게스트하우스</option><option value="기타">기타</option></select></label>' +
+        '<label><span>체크인 날짜 *</span><input data-field="checkIn" type="date" /></label>'
         '<label><span>체크인 시간</span><input data-field="checkInTime" type="time" /></label>' +
         '<label><span>체크아웃 날짜 *</span><input data-field="checkOut" type="date" /></label>' +
         '<label><span>체크아웃 시간</span><input data-field="checkOutTime" type="time" /></label>' +
@@ -220,7 +221,7 @@
       };
       return {
         clientId: row.dataset.clientId || idFor('stay'),
-        name: val('name').trim(), relatedPlaceClientId: val('relatedPlaceClientId'), checkIn: val('checkIn'), checkInTime: val('checkInTime'),
+        name: val('name').trim(), stayType: val('stayType'), relatedPlaceClientId: val('relatedPlaceClientId'), checkIn: val('checkIn'), checkInTime: val('checkInTime'),
         checkOut: val('checkOut'), checkOutTime: val('checkOutTime'),
         address: val('address'), region: val('region'),
         lat: number('lat'), lng: number('lng'), memo: val('memo'), rating: val('rating')
@@ -254,7 +255,11 @@
       if (!select) return;
       const current = select.value || row.dataset.parentPlaceClientId || '';
       const category = row.querySelector('[data-field="category"]')?.value || 'attraction';
-      const eligible = rows.filter(candidate => candidate !== row && ['attraction','experience'].includes(candidate.querySelector('[data-field="category"]')?.value));
+      const eligible = rows.filter(candidate =>
+        candidate !== row &&
+        !String(candidate.querySelector('[data-field="parentPlaceClientId"]')?.value || candidate.dataset.parentPlaceClientId || '').trim() &&
+        ['attraction','experience'].includes(candidate.querySelector('[data-field="category"]')?.value)
+      );
       const validParentIds = new Set(eligible.map(candidate => String(candidate.dataset.clientId)));
       const selectedParent = validParentIds.has(String(current)) ? current : '';
       select.innerHTML = '<option value="">여행에 직접 연결 (상위 장소 없음)</option>' + eligible.map(candidate => {
@@ -479,7 +484,7 @@
     const status = $('placeStatusFilter')?.value || 'visited';
     const selected = state.places.filter(item =>
       (status === 'all' || (item.status || 'visited') === status) &&
-      (category === 'all' || item.category === category) &&
+      (category === 'all' || (category === 'food' ? ['restaurant','cafe'].includes(item.category) : item.category === category)) &&
       (!search || [item.name,item.region,item.address,item.memo,item.cuisineType,item.orderedMenu?.join(' '),tripTitle(item.tripId)].join(' ').toLowerCase().includes(search))
     );
     const visited = state.places.filter(item => (item.status || 'visited') === 'visited');
@@ -638,7 +643,6 @@
   }
   function renderTripDetailExtras() {
     const modal = $('tripDetailModal');
-    const title = $('tripDetailTitle')?.textContent;
     if (!modal || !modal.classList.contains('open')) return;
     const id = modal.dataset.extraTripId || '';
     const trip = tripById(id);
@@ -660,21 +664,36 @@
       if (!dayGroups.has(date)) dayGroups.set(date, []);
       dayGroups.get(date).push(item);
     });
+    const icon = {attraction:'🏞️',restaurant:'🍜',cafe:'☕',experience:'🎨',shopping:'🛍️',other:'📌'};
+    const renderPlaceLine = item => {
+      const food = ['restaurant','cafe'].includes(item.category);
+      const rating = food
+        ? [['아빠',item.dadRating],['수호',item.suhoRating],['현아',item.hyeonahRating]].filter(entry => entry[1]).map(entry => entry[0] + ' ' + '★'.repeat(Number(entry[1]))).join('　')
+        : '';
+      return '<div class="detail-place-line"><span>' + (icon[item.category] || '📌') + '</span><div><b>' + escapeHTML(item.name) + '</b><small>' + categoryLabel(item.category) + (item.visitTime ? ' · ' + escapeHTML(item.visitTime) : '') + (item.status === 'planned' ? ' · 방문 예정' : '') + '</small>' +
+        (food && (item.cuisineType || item.mealType || item.orderedMenu?.length) ? '<small>' + escapeHTML([item.cuisineType,item.mealType,item.orderedMenu?.join(', ')].filter(Boolean).join(' · ')) + '</small>' : '') +
+        (item.familyFeedback ? '<p>가족 평가: ' + escapeHTML(item.familyFeedback) + '</p>' : '') +
+        (item.memo ? '<p>' + escapeHTML(item.memo) + '</p>' : '') +
+        (rating ? '<small>' + escapeHTML(rating) + '</small>' : '') +
+        '</div>' + (item.favorite || item.revisitRecommendation ? '<em>♡</em>' : '') + '</div>';
+    };
     panel.innerHTML =
       '<div class="detail-extra-heading"><h3>🗓️ 우리 가족의 여행 일정</h3><span>' + escapeHTML(dateRange(trip)) + '</span></div>' +
-      '<div class="detail-extra-meta">' +
-        '<span>🚙 ' + escapeHTML(trip.transport || '이동수단 미입력') + '</span>' +
-        '<span>👨‍👩‍👧‍👦 ' + escapeHTML(companions || '동행자 미입력') + '</span>' +
-      '</div>' +
+      '<div class="detail-extra-meta"><span>🚙 ' + escapeHTML(trip.transport || '이동수단 미입력') + '</span><span>👨‍👩‍👧‍👦 ' + escapeHTML(companions || '동행자 미입력') + '</span></div>' +
       '<div class="detail-extra-section"><h4>📍 방문 장소 ' + places.length + '곳</h4>' +
-        (places.length ? [...dayGroups.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([date,items]) =>
-          '<div class="detail-day-group"><b>' + escapeHTML(dateText(date)) + '</b>' + items.sort((a,b) => Number(a.sequence||0)-Number(b.sequence||0)).map(item =>
-            '<div class="detail-place-line"><span>' + (item.status === 'planned' ? '📝' : '📍') + '</span><div><b>' + escapeHTML(item.name) + '</b><small>' + categoryLabel(item.category) + (item.visitTime ? ' · ' + escapeHTML(item.visitTime) : '') + (item.status === 'planned' ? ' · 방문 예정' : '') + '</small>' + (item.memo ? '<p>' + escapeHTML(item.memo) + '</p>' : '') + '</div>' + (item.favorite ? '<em>♡</em>' : '') + '</div>'
-          ).join('') + '</div>'
-        ).join('') : '<p class="detail-extra-empty">아직 방문 장소를 추가하지 않았습니다.</p>') +
+        (places.length ? [...dayGroups.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([date,items]) => {
+          const roots = items.filter(item => !item.parentPlaceClientId || !items.some(parent => String(parent.clientId) === String(item.parentPlaceClientId)));
+          return '<div class="detail-day-group"><b>' + escapeHTML(dateText(date)) + '</b>' + roots.sort((a,b) => Number(a.sequence||0)-Number(b.sequence||0)).map(item => {
+            const children = items.filter(child => String(child.parentPlaceClientId || '') === String(item.clientId));
+            return renderPlaceLine(item) + (children.length ? '<div class="place-tree-children">' + children.map(renderPlaceLine).join('') + '</div>' : '');
+          }).join('') + '</div>';
+        }).join('') : '<p class="detail-extra-empty">아직 방문 장소를 추가하지 않았습니다.</p>') +
       '</div>' +
       '<div class="detail-extra-section"><h4>🏨 숙소 ' + stays.length + '곳</h4>' +
-        (stays.length ? stays.map(item => '<div class="detail-stay-line"><b>' + escapeHTML(item.name) + '</b><span>' + escapeHTML(dateText(item.checkIn)) + ' – ' + escapeHTML(dateText(item.checkOut)) + ' · ' + nightsBetween(item.checkIn,item.checkOut) + '박</span>' + (item.memo ? '<p>' + escapeHTML(item.memo) + '</p>' : '') + '</div>').join('') : '<p class="detail-extra-empty">등록된 숙소가 없습니다. 당일 여행이면 비워두면 됩니다.</p>') +
+        (stays.length ? stays.map(item => {
+          const related = places.find(place => String(place.clientId) === String(item.relatedPlaceClientId || ''));
+          return '<div class="detail-stay-line"><div><b>' + escapeHTML(item.name) + '</b>' + (item.stayType ? '<small>' + escapeHTML(item.stayType) + '</small>' : '') + (related ? '<small>연결 장소: ' + escapeHTML(related.name) + '</small>' : '') + '</div><span>' + escapeHTML(dateText(item.checkIn)) + ' – ' + escapeHTML(dateText(item.checkOut)) + ' · ' + nightsBetween(item.checkIn,item.checkOut) + '박</span>' + (item.memo ? '<p>' + escapeHTML(item.memo) + '</p>' : '') + '</div>';
+        }).join('') : '<p class="detail-extra-empty">등록된 숙소가 없습니다. 당일 여행이면 비워두면 됩니다.</p>') +
       '</div>';
     modal.dataset.extraTripId = id;
   }
@@ -720,6 +739,12 @@
     $('placeStatusFilter')?.addEventListener('change', renderPlaces);
     $('staySearch')?.addEventListener('input', renderStays);
     document.addEventListener('change', event => {
+      if (event.target.matches('#tripPlaceEditorRows [data-field="parentPlaceClientId"]')) {
+        const row = event.target.closest('.trip-extra-item');
+        if (row) row.dataset.parentPlaceClientId = event.target.value || '';
+        refreshPlaceParentOptions();
+        refreshStayPlaceOptions();
+      }
       if (event.target.matches('#tripPlaceEditorRows [data-field="category"]')) { refreshPlaceParentOptions(); refreshStayPlaceOptions(); }
     });
     document.addEventListener('input', event => {
@@ -733,7 +758,7 @@
         if (tab === 'stay') document.querySelector('.place-directory-stays')?.scrollIntoView({behavior:'smooth',block:'start'});
         else {
           if (tab === 'attraction') $('placeCategoryFilter').value = 'attraction';
-          else if (tab === 'food') $('placeCategoryFilter').value = 'restaurant';
+          else if (tab === 'food') $('placeCategoryFilter').value = 'food';
           else $('placeCategoryFilter').value = 'all';
           renderPlaces();
         }
