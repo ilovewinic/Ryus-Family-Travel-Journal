@@ -459,7 +459,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
         if (season) seasonCounts.set(season, (seasonCounts.get(season) || 0) + 1);
       }
     });
-    const entries = [...counts.entries()].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0],'ko'));
+    const entries = [...counts.entries()].filter(([name]) => name !== '지역 미입력').sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0],'ko'));
     const totalEl = $('homeRegionTotal');
     const favoriteEl = $('homeRegionFavorite');
     const bars = $('homeRegionBars');
