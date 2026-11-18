@@ -167,9 +167,9 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 </head>
 <body>
 <div class="app">
-  <header class="topbar">
-    <div class="brand"><div class="brand-mark">🌷</div><div><h1>우리 가족 여행기록장</h1><small>함께 모은 순간, 오래도록 행복하게</small></div></div>
-    <div class="top-actions"><span class="soft-pill">🌼 Family memories</span><div class="profile-dot">👨‍👩‍👧‍👦</div></div>
+  <header class="topbar family-masthead">
+    <div class="brand"><div class="brand-mark">📷</div><div><h1>가족 여행기록장</h1><small>우리 가족의 소중한 여행 이야기 ♡</small></div></div>
+    <div class="top-actions"><span class="soft-pill">🌼 Together, always</span><div class="profile-dot">👨‍👩‍👧‍👦</div></div>
   </header>
   <div class="layout">
     <aside class="sidebar">
@@ -184,105 +184,53 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
     </aside>
     <main>
       <section id="view-home" class="view active">
-        <section class="hero-cover" aria-label="우리 가족 여행 앨범 표지">
-          <div class="hero-copy">
-            <div class="hero-kicker"><span>✦</span> OUR FAMILY TRAVEL DIARY <span>✦</span></div>
-            <h2>함께 떠나서 더 행복한<br><em>우리 가족의 포근한 여행 이야기</em></h2>
-            <p>작은 발자국마다 웃음과 추억을 차곡차곡 담아요.</p>
-            <button class="primary hero-cta" id="addTripTop">새 여행 추억 담기 <span>＋</span></button>
+                <section class="hero-cover home-featured" id="homeFeaturedBanner" aria-label="우리 가족의 최근 여행 사진">
+          <div class="home-feature-photo"><img id="homeFeatureImage" alt="가족의 대표 여행 사진" /></div>
+          <div class="home-feature-shade"></div>
+          <div class="home-feature-copy">
+            <span class="home-feature-kicker">OUR FAMILY JOURNEY ✈</span>
+            <h2 id="homeFeatureTitle">함께한 여행, 오래도록 기억해요 ♡</h2>
+            <p id="homeFeatureMeta">가족의 소중한 순간을 한곳에 모아요.</p>
+            <span class="home-feature-place" id="homeFeaturePlace">🌼 다음 여행도 기대돼요!</span>
           </div>
-          <div class="hero-art" aria-hidden="true">
-            <span class="hero-sticker sticker-sun">☀️</span>
-            <span class="hero-sticker sticker-flower">🌼</span>
-            <span class="hero-sticker sticker-plane">✈️</span>
-            <svg viewBox="0 0 460 230" role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="hillBack" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b9e3d2"/><stop offset="1" stop-color="#91cdb8"/></linearGradient>
-                <linearGradient id="hillFront" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a8d9c4"/><stop offset="1" stop-color="#78bda8"/></linearGradient>
-              </defs>
-              <path d="M72 65 C91 46 118 47 132 66 C148 49 177 58 181 79 C198 81 204 97 193 109 L76 109 C54 101 54 78 72 65Z" fill="#fff" opacity=".9"/>
-              <path d="M283 40 C297 25 322 29 329 47 C344 36 367 44 367 62 C384 66 389 84 376 94 L284 94 C265 85 267 54 283 40Z" fill="#fff" opacity=".82"/>
-              <circle cx="354" cy="48" r="27" fill="#ffd66f"/>
-              <g stroke="#f3bb55" stroke-width="4" stroke-linecap="round"><path d="M354 10v-8M354 86v-8M316 48h-8M400 48h-8M327 21l-6-6M387 81l-6-6M381 21l6-6M321 81l6-6"/></g>
-              <path d="M27 190 L115 107 L169 165 L229 91 L316 185Z" fill="#c6d9ea"/>
-              <path d="M91 132 L115 107 L137 132 L121 127 L114 135 L107 126Z" fill="#fff" opacity=".95"/>
-              <path d="M197 125 L229 91 L260 127 L240 119 L229 130 L218 118Z" fill="#fff" opacity=".95"/>
-              <path d="M0 194 C66 147 127 157 182 181 C245 209 302 157 460 167 L460 230 L0 230Z" fill="url(#hillBack)"/>
-              <path d="M0 213 C84 173 143 192 206 207 C282 226 355 171 460 190 L460 230 L0 230Z" fill="url(#hillFront)"/>
-              <path d="M58 213 C126 171 181 174 236 195 S344 214 400 166" fill="none" stroke="#fff7dc" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 11" opacity=".95"/>
-              <circle cx="59" cy="213" r="7" fill="#f28f83" stroke="#fff" stroke-width="3"/>
-              <circle cx="400" cy="166" r="7" fill="#f28f83" stroke="#fff" stroke-width="3"/>
-              <g transform="translate(302 153)"><path d="M0 0 C-16 -23 1 -40 16 -32 C31 -23 25 -5 0 0Z" fill="#f28f83" stroke="#fff" stroke-width="3"/><circle cx="9" cy="-19" r="5" fill="#fff4e9"/><path d="M0 0 L-4 9 L7 4Z" fill="#df7a70"/></g>
-              <g fill="#fff" opacity=".9"><path d="M212 35l4 9 10 4-10 4-4 9-4-9-10-4 10-4z"/><path d="M255 68l3 6 7 3-7 3-3 6-3-6-7-3 7-3z"/><circle cx="74" cy="133" r="3"/><circle cx="426" cy="111" r="3"/></g>
-            </svg>
-            <svg class="family-friends" viewBox="0 0 190 132" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <filter id="friendShadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="2.2"/></filter>
-              </defs>
-              <ellipse cx="99" cy="121" rx="88" ry="7" fill="#648b77" opacity=".16" filter="url(#friendShadow)"/>
-              <!-- cream rabbit -->
-              <g stroke="#9a705b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M24 48C12 17 22 3 33 7c12 4 10 28 8 41" fill="#fff8ee"/>
-                <path d="M43 45C39 15 49 5 59 11c10 7 5 28 1 39" fill="#fff8ee"/>
-                <path d="M29 34c-3-14-1-21 4-22 5 2 5 11 5 21" fill="#f6c5c2" stroke="none"/>
-                <path d="M49 33c0-12 3-17 7-16 4 3 2 11 0 17" fill="#f6c5c2" stroke="none"/>
-                <ellipse cx="43" cy="78" rx="26" ry="29" fill="#fffaf1"/>
-                <ellipse cx="44" cy="104" rx="20" ry="17" fill="#fffaf1"/>
-                <path d="M25 101c-8 9-18 5-18-1 0-6 7-8 14-5M60 101c9 7 17 3 16-3-1-5-7-6-14-2" fill="#fffaf1"/>
-                <circle cx="34" cy="76" r="2.5" fill="#6e5145" stroke="none"/>
-                <circle cx="52" cy="76" r="2.5" fill="#6e5145" stroke="none"/>
-                <path d="M39 83q4 5 8 0" fill="none"/>
-                <ellipse cx="25" cy="84" rx="5" ry="3" fill="#f3b7ad" stroke="none"/>
-                <ellipse cx="62" cy="84" rx="5" ry="3" fill="#f3b7ad" stroke="none"/>
-                <path d="M24 96q18 9 37 0" fill="none" stroke="#e99693" stroke-width="5"/>
-                <!-- bear -->
-                <circle cx="105" cy="54" r="13" fill="#c98d63"/>
-                <circle cx="145" cy="54" r="13" fill="#c98d63"/>
-                <circle cx="105" cy="54" r="6" fill="#f4d4b3" stroke="none"/>
-                <circle cx="145" cy="54" r="6" fill="#f4d4b3" stroke="none"/>
-                <ellipse cx="125" cy="79" rx="29" ry="28" fill="#d9a477"/>
-                <ellipse cx="125" cy="106" rx="23" ry="16" fill="#d9a477"/>
-                <circle cx="115" cy="77" r="2.5" fill="#6e5145" stroke="none"/>
-                <circle cx="135" cy="77" r="2.5" fill="#6e5145" stroke="none"/>
-                <ellipse cx="125" cy="86" rx="7" ry="5" fill="#f5e5d0"/>
-                <path d="M121 87q4 5 8 0" fill="none"/>
-                <ellipse cx="105" cy="86" rx="5" ry="3" fill="#efaaa0" stroke="none"/>
-                <ellipse cx="145" cy="86" rx="5" ry="3" fill="#efaaa0" stroke="none"/>
-                <path d="M99 101q25 11 51 0" fill="none" stroke="#8fc5ae" stroke-width="6"/>
-                <!-- chick -->
-                <ellipse cx="174" cy="94" rx="15" ry="19" fill="#ffe29a"/>
-                <path d="M172 73q-4-10 3-12 5 7 1 12" fill="#f5ce78"/>
-                <circle cx="169" cy="91" r="2" fill="#76513f" stroke="none"/>
-                <circle cx="179" cy="91" r="2" fill="#76513f" stroke="none"/>
-                <path d="M171 96l5 0-2.5 4z" fill="#e99b56" stroke="none"/>
-                <ellipse cx="164" cy="99" rx="3.5" ry="2.3" fill="#f3aaa0" stroke="none"/>
-                <ellipse cx="183" cy="99" rx="3.5" ry="2.3" fill="#f3aaa0" stroke="none"/>
-              </g>
-              <path d="M77 112l-4 9m4-9 5 9" stroke="#f0b7a7" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M155 119l-3 5m3-5 4 5" stroke="#e8b85f" stroke-width="2.2" stroke-linecap="round"/>
-              <path d="M87 29l3 6 6 2-6 2-3 6-2-6-6-2 6-2z" fill="#f4c96f"/>
-            </svg>
-            <div class="hero-art-note"><span>♡</span> little trips, lovely memories</div>
+          <button type="button" class="home-feature-arrow prev" id="homeFeaturePrev" aria-label="이전 여행">‹</button>
+          <button type="button" class="home-feature-arrow next" id="homeFeatureNext" aria-label="다음 여행">›</button>
+          <div class="home-feature-dots" id="homeFeatureDots"></div>
+        </section>        <div class="home-layout-grid">
+          <div class="home-main-column">
+            <div class="stats home-stats">
+              <div class="stat"><div class="stat-icon">🧳</div><div><strong id="statTrips">0</strong><span>여행 기록</span></div></div>
+              <div class="stat"><div class="stat-icon">📍</div><div><strong id="statPlaces">0</strong><span>방문 지역</span></div></div>
+              <div class="stat"><div class="stat-icon">🏡</div><div><strong id="statRegions">0</strong><span>국내 여행</span></div></div>
+              <div class="stat"><div class="stat-icon">🌏</div><div><strong id="statPhotos">0</strong><span>해외 여행</span></div></div>
+            </div>
+            <section class="panel trip-panel home-trip-panel">
+              <div class="section-head"><div><h3>우리 가족의 여행 기록</h3><p>사진으로 다시 만나는 소중한 순간들</p></div><button class="secondary" id="allTripsBtn">전체 보기 →</button></div>
+              <div id="recentTrips" class="trip-grid"></div>
+            </section>
+            <section class="panel side-panel home-print-panel"><h3>💛 인화하고 싶은 사진</h3><p class="hint">오래 간직하고 싶은 순간을 골라두세요.</p><div id="printQuick"></div><button class="secondary" style="width:100%;margin-top:8px" id="goPrint">인화용 사진 모아보기 →</button></section>
           </div>
-          <div class="hero-sparkle sparkle-one">✦</div><div class="hero-sparkle sparkle-two">✧</div>
-        </section>
-        <div class="stats">
-          <div class="stat"><div class="stat-icon">🧳</div><div><strong id="statTrips">0</strong><span>여행 기록</span></div></div>
-          <div class="stat"><div class="stat-icon">📍</div><div><strong id="statPlaces">0</strong><span>방문 장소</span></div></div>
-          <div class="stat"><div class="stat-icon">🗺️</div><div><strong id="statRegions">0</strong><span>방문 지역</span></div></div>
-          <div class="stat"><div class="stat-icon">📸</div><div><strong id="statPhotos">0</strong><span>여행 사진</span></div></div>
-        </div>
-        <section class="panel map-panel">
-          <div class="section-head"><div><h3>우리 가족의 여행 지도</h3><p>같은 장소를 다시 방문하면 아이콘 하나에 방문 횟수가 쌓여요.</p></div><div class="map-controls"><select id="mapTypeFilter" class="select-small"><option value="all">국내 + 해외</option><option value="domestic">국내만</option><option value="overseas">해외만</option></select><select id="mapYearFilter" class="select-small"><option value="all">전체 연도</option></select></div></div>
-          <div class="map-wrap"><div id="mainMap" class="map-canvas" aria-label="가족 여행 지도"></div><div class="map-empty" id="mapEmpty"><div class="big">🧭</div><b>우리 가족의 첫 여행을 기록해 보세요!</b><span>여행 장소가 지도 위에 아이콘으로 표시됩니다.</span></div></div>
-          <div class="map-foot"><div class="map-legend"><span class="legend-item"><i class="legend-dot"></i>방문 장소</span><span>숫자는 같은 장소의 방문 횟수</span></div><span>지도 © OpenStreetMap</span></div>
-        </section>
-        <div class="content-grid">
-          <section class="panel trip-panel"><div class="section-head"><div><h3>최근 여행 기록</h3><p>우리 가족의 최근 추억을 모아봤어요.</p></div><button class="secondary" id="allTripsBtn">전체 보기 →</button></div><div id="recentTrips" class="trip-grid"></div></section>
-          <div>
-            <section class="panel side-panel"><h3>💛 인화하고 싶은 사진</h3><p class="hint">마음에 드는 사진을 골라 인화 후보에 담아두세요.</p><div id="printQuick"></div><button class="secondary" style="width:100%;margin-top:8px" id="goPrint">인화용 사진 모아보기 →</button></section>
-            <section class="panel side-panel"><h3>🔐 부모 전용 경비</h3><p class="hint">여행의 즐거운 추억은 가족 모두에게, 경비는 부부에게만.</p><div class="locked-box"><b>부모 계정 전용 공간</b>실제 연결 시 부부 계정에서만 경비 메뉴와 금액이 보이도록 서버 권한까지 분리합니다. 자녀 계정에서는 접근할 수 없어요.</div></section>
-          </div>
+          <aside class="home-right-column">
+            <section class="panel side-panel home-recent-expenses" id="homeRecentExpenses">
+              <div class="home-card-heading"><span>🐻</span><div><h3>최근 여행 경비</h3><p>최근 다녀온 여행의 기록만 살펴봐요.</p></div></div>
+              <div id="homeRecentExpensesList"><div class="locked-box"><b>부모 계정 전용</b>최근 여행 경비는 부모 계정에서만 확인할 수 있어요.</div></div>
+              <button class="secondary" type="button" id="homeExpensesMore">여행 경비 전체 보기 →</button>
+            </section>
+            <section class="panel side-panel home-region-panel">
+              <div class="home-card-heading"><span>🗺️</span><div><h3>우리 가족이 다녀온 곳</h3><p>지역별 방문 횟수</p></div></div>
+              <div class="home-region-highlights">
+                <div><strong id="homeRegionTotal">0</strong><span>방문 지역</span></div>
+                <div><strong id="homeRegionFavorite">-</strong><span>가장 자주 간 곳</span></div>
+              </div>
+              <div id="homeRegionBars" class="home-region-bars"><div class="home-region-empty">여행을 기록하면 다녀온 지역이 차곡차곡 쌓여요.</div></div>
+              <div class="home-season-row" id="homeSeasonStats"></div>
+            </section>
+            <section class="panel map-panel home-map-card">
+              <div class="section-head"><div><h3>우리 가족의 여행 지도</h3><p>방문한 곳을 지도에서 살펴봐요.</p></div><div class="map-controls"><select id="mapTypeFilter" class="select-small"><option value="all">국내 + 해외</option><option value="domestic">국내만</option><option value="overseas">해외만</option></select><select id="mapYearFilter" class="select-small"><option value="all">전체 연도</option></select></div></div>
+              <div class="map-wrap"><div id="mainMap" class="map-canvas" aria-label="가족 여행 지도"></div><div class="map-empty" id="mapEmpty"><div class="big">🧭</div><b>우리 가족의 첫 여행을 기록해 보세요!</b><span>여행 장소가 지도 위에 아이콘으로 표시됩니다.</span></div></div>
+              <div class="map-foot"><div class="map-legend"><span class="legend-item"><i class="legend-dot"></i>방문 장소</span><span>숫자는 같은 장소의 방문 횟수</span></div><span>지도 © OpenStreetMap</span></div>
+            </section>
+          </aside>
         </div>
       </section>
       <section id="view-trips" class="view">
@@ -303,7 +251,8 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
         <div class="panel expense-lock"><div class="lock-icon">🔐</div><h2>부부만 보는 여행 경비</h2><p>이 공간은 부모 계정에만 연결됩니다.<br>실제 서비스에서는 화면에서 숨기는 것뿐 아니라 데이터베이스에서도 부부 계정만 조회·수정할 수 있도록 잠급니다.<br><br><b>미리보기에서는 실제 경비를 입력하거나 저장하지 않습니다.</b></p></div>
       </section>
       <div class="preview-banner"><b>미리보기 모드</b>현재 기록과 사진은 이 브라우저에만 저장됩니다. Supabase·Cloudflare R2 연결 전이므로 가족 간 기기 연동과 계정별 권한은 아직 적용되지 않았습니다. 실제 가족 사진이나 민감한 정보는 연동 완료 전까지 테스트용으로만 사용해 주세요.</div>
-      <div class="footer"><span>우리 가족 여행 앨범 · Preview</span><span>따뜻한 추억을 오래오래 🌼</span></div>
+      <div class="family-footer"><span>언제 어디를 가도, 가족과 함께라면 행복해요 ♡</span><span class="family-footer-doodle">✿　✧　🌼　✧　✿</span></div>
+      <div class="footer"><span>우리 가족 여행기록장</span><span>작은 발자국마다 추억이 쌓여요 🌷</span></div>
     </main>
   </div>
 </div>
