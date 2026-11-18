@@ -915,3 +915,41 @@ body.auth-child #homeFeaturedSettings{display:none!important}
   .stats-metric-grid b{font-size:22px}
   .explorer-history>div{align-items:flex-start}
 }
+
+/* Unified visit-place tree and restaurant diary */
+.place-subnav{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 15px}
+.place-subnav button{border:1px solid #ece6df;border-radius:20px;padding:8px 14px;background:#fff;color:#788696;font-size:11px;font-weight:800;cursor:pointer}
+.place-subnav button.active{border-color:#d8b4a0;background:#fff3eb;color:#a96e5a}
+.place-trip-groups{display:grid;gap:17px}
+.place-trip-group{padding:17px;border:1px solid #eee8df;border-radius:17px;background:#fff;box-shadow:0 5px 18px #5d6c7d08}
+.place-trip-heading,.place-directory-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid #f1ece6}
+.place-trip-heading>div{display:grid;gap:4px}
+.place-trip-heading b,.place-directory-heading h3{margin:0;color:#43576d;font-size:14px}
+.place-trip-heading span,.place-directory-heading span{color:#9aa2ac;font-size:10px}
+.place-trip-heading button,.place-trip-open{border:0;border-radius:9px;padding:7px 10px;background:#f0f7f4;color:#64887e;font-size:10px;font-weight:800;cursor:pointer}
+.place-day-group{margin-top:13px}
+.place-day-group>h4{margin:0 0 8px;color:#8b98a5;font-size:11px}
+.place-tree-node{position:relative;padding:10px 0;border-bottom:1px dashed #eee9e3}
+.place-tree-node:last-child{border-bottom:0}
+.place-tree-main{display:flex;align-items:flex-start;gap:10px}
+.place-tree-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:11px;background:#fbf3e9;font-size:18px}
+.place-tree-copy{flex:1;min-width:0}
+.place-tree-copy h4{margin:5px 0 3px;color:#46596d;font-size:13px}
+.place-tree-copy p{margin:0;color:#929ca8;font-size:10px;line-height:1.5}
+.place-tree-memo{margin-top:6px!important;color:#748293!important;white-space:pre-wrap}
+.place-tree-children{margin:9px 0 0 42px;padding-left:13px;border-left:2px solid #ead7c8}
+.place-tree-children .place-tree-node{padding:8px 0}
+.place-tree-children .place-tree-icon{width:29px;height:29px;flex-basis:29px;font-size:15px;background:#eff7f2}
+.place-tree-children .place-tree-copy h4{font-size:12px}
+.food-meta{display:inline-block;margin-top:6px;padding:5px 8px;border-radius:8px;background:#fff5eb;color:#b27a5d;font-size:10px;font-weight:800}
+.food-rating-line{margin-top:6px;color:#c28c67;font-size:10px;font-weight:800}
+.food-node .place-tree-icon{background:#fff0e7}
+.place-directory-stays{margin-top:22px;padding-top:16px;border-top:2px dashed #e9dfd5}
+.place-directory-stays .explorer-summary{margin-top:12px}
+.food-only[hidden]{display:none!important}
+.food-check{display:flex;align-items:center;gap:7px;color:#bd856e;font-size:11px;font-weight:800}
+.food-check input{accent-color:#e39a83}
+.family-rating-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:9px}
+.family-rating-grid label{display:flex;align-items:center;gap:5px;color:#8a95a2;font-size:10px}
+.family-rating-grid select{min-width:0;padding:7px;border:1px solid #eee5dc;border-radius:8px;background:#fff;color:#bd896c;font-size:10px}
+@media(max-width:600px){.place-trip-group{padding:13px}.place-tree-children{margin-left:27px;padding-left:9px}.place-trip-heading{align-items:flex-start}.family-rating-grid{gap:4px}.family-rating-grid label{flex-direction:column;align-items:flex-start}}
