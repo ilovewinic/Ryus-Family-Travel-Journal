@@ -168,6 +168,56 @@
       coverPhotoId: r.cover_photo_id || null
     };
   }
+
+  const HOME_FEATURED_STORAGE_KEY = 'ryusFamilyHomeFeatureIds_v1';
+  function cleanHomeFeaturedIds(values) {
+    if (!Array.isArray(values)) return [];
+    return [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))].slice(0, 5);
+  }
+  function readLocalHomeFeaturedIds() {
+    try { return cleanHomeFeaturedIds(JSON.parse(localStorage.getItem(HOME_FEATURED_STORAGE_KEY) || '[]')); }
+    catch (_) { return []; }
+  }
+  window.loadFamilyHomeFeaturedIds = async function() {
+    const localIds = readLocalHomeFeaturedIds();
+    if (!client || !familyProfile) return localIds;
+    const { data, error } = await client
+      .from('family_home_settings')
+      .select('featured_trip_ids')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      const message = String(error.message || '');
+      if (error.code === '42P01' || error.code === 'PGRST205' || /does not exist|schema cache/i.test(message)) {
+        console.warn('[메인 대표 여행] 설정 테이블이 아직 없습니다. SQL 업그레이드 후 가족 기기 간 동기화가 가능합니다.');
+        return localIds;
+      }
+      throw new Error('메인 대표 여행 설정을 불러오지 못했습니다: ' + message);
+    }
+    const ids = cleanHomeFeaturedIds(data?.featured_trip_ids);
+    localStorage.setItem(HOME_FEATURED_STORAGE_KEY, JSON.stringify(ids));
+    return ids;
+  };
+  window.saveFamilyHomeFeaturedIds = async function(values) {
+    if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 첫 화면 대표 여행을 변경할 수 있습니다.');
+    const ids = cleanHomeFeaturedIds(values);
+    if (ids.length < 1 || ids.length > 5) throw new Error('첫 화면에 표시할 여행을 1개에서 5개까지 선택해 주세요.');
+    const { error } = await client
+      .from('family_home_settings')
+      .upsert({
+        id: 1,
+        featured_trip_ids: ids,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    if (error) {
+      if (error.code === '42P01' || error.code === 'PGRST205' || /does not exist|schema cache/i.test(String(error.message || ''))) {
+        throw new Error('가족 공통 대표 여행 설정 테이블이 아직 없습니다. 안내된 SQL을 Supabase에서 먼저 실행해 주세요.');
+      }
+      throw new Error('메인 대표 여행을 가족 계정에 저장하지 못했습니다: ' + error.message);
+    }
+    localStorage.setItem(HOME_FEATURED_STORAGE_KEY, JSON.stringify(ids));
+    return ids;
+  };
   async function getFamilyProfile(userId) {
     const { data, error } = await client
       .from('family_members')
