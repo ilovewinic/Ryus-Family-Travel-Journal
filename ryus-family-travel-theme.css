@@ -770,3 +770,148 @@ body.auth-child #homeFeaturedSettings{display:none!important}
   .home-feature-settings-modal .modal-actions .right-actions{margin-left:0}
   .home-feature-settings-modal .modal-actions>button{flex:1}
 }
+
+
+/* ---------- Multi-day trips, multiple places and stays ---------- */
+.trip-extra-panel{margin-top:18px;padding:18px;border:1px solid #eee7df;border-radius:18px;background:linear-gradient(145deg,#fffdf8,#fff8f4)}
+.trip-extra-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.trip-extra-heading h4{margin:0;color:#344357;font-size:15px;font-weight:900}
+.trip-extra-heading p{margin:5px 0 0;color:#8a94a2;font-size:11px;line-height:1.55}
+.trip-extra-heading .secondary{white-space:nowrap;padding:8px 12px;font-size:11px}
+.trip-extra-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.trip-general-fields{max-width:620px}
+.trip-extra-fields label{display:flex;min-width:0;flex-direction:column;gap:5px;color:#68778a;font-size:11px;font-weight:800}
+.trip-extra-fields label.wide{grid-column:1/-1}
+.trip-extra-fields input,.trip-extra-fields select,.trip-extra-fields textarea,.place-coordinates input{width:100%;min-width:0;box-sizing:border-box;padding:9px 10px;border:1px solid #e6e8ec;border-radius:10px;background:#fff;color:#344357;font:inherit;font-size:12px;outline:none}
+.trip-extra-fields input:focus,.trip-extra-fields select:focus,.trip-extra-fields textarea:focus,.place-coordinates input:focus{border-color:#9cc8da;box-shadow:0 0 0 3px #e6f4f8}
+.trip-extra-fields textarea{resize:vertical;line-height:1.6}
+.companion-choice{display:flex;flex-wrap:wrap;align-items:center;gap:9px 15px;margin-top:13px;padding-top:12px;border-top:1px dashed #eadfd6}
+.companion-choice>label{display:flex;align-items:center;gap:5px;color:#59677a;font-size:12px;font-weight:800}
+.companion-choice input[type=checkbox]{accent-color:#ea9b8e}
+.companion-choice .extra-label{color:#788596;font-size:11px;font-weight:900}
+.companion-choice .companion-other{display:flex;align-items:center;gap:7px;margin-left:auto}
+.companion-choice .companion-other input{width:150px;padding:7px 9px;border:1px solid #e6e8ec;border-radius:9px;font:inherit;font-size:11px}
+.trip-extra-row-list{display:grid;gap:11px}
+.trip-extra-empty{padding:16px;border:1px dashed #e6ddd4;border-radius:13px;color:#9a9eaa;text-align:center;font-size:11px;background:#fffdfb}
+.trip-extra-item{padding:14px;border:1px solid #eee8e0;border-radius:14px;background:#fff;box-shadow:0 3px 13px #5f70800a}
+.trip-extra-item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.trip-extra-item-head b{font-size:12px;color:#43536a}
+.extra-remove-button{border:0;background:#fff0ec;color:#b96760;border-radius:9px;padding:6px 10px;font-size:10px;font-weight:800;cursor:pointer}
+.place-coordinates{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px}
+.place-coordinates>span{font-size:10px;color:#8993a0;font-weight:800}
+.place-coordinates input{width:105px;padding:7px 8px;font-size:10px}
+.place-coordinates button{white-space:nowrap}
+.place-coordinates label{display:flex;align-items:center;gap:5px;margin-left:auto;color:#87909d;font-size:10px}
+.place-coordinates input[type=checkbox]{width:auto;accent-color:#e79a8e}
+.stay-row-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:9px}
+.stay-row-foot>span{color:#5d8e83;background:#edf8f1;border-radius:20px;padding:6px 10px;font-size:10px;font-weight:900}
+.stay-row-foot .place-coordinates{margin-top:0}
+.coordinate-picker-backdrop{display:none;position:fixed;inset:0;z-index:12000;padding:18px;background:#23324675;align-items:center;justify-content:center}
+.coordinate-picker-backdrop.open{display:flex}
+.coordinate-picker-card{width:min(760px,100%);background:#fff;border-radius:20px;padding:16px;box-shadow:0 25px 80px #20304755}
+.coordinate-picker-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.coordinate-picker-head h3{margin:0;color:#35445b;font-size:16px}
+.coordinate-picker-head p{margin:5px 0 0;color:#8993a0;font-size:11px}
+.coordinate-picker-head .close{border:0;background:#f7f3ef;border-radius:10px;font-size:20px;width:34px;height:34px;cursor:pointer}
+.coordinate-picker-map{height:min(55vh,420px);min-height:260px;border-radius:14px;overflow:hidden;background:#f2f5f6}
+.coordinate-picker-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:12px;color:#718095;font-size:11px}
+.coordinate-picker-foot>div{display:flex;gap:7px}
+.coordinate-picker-foot button{padding:9px 13px;font-size:11px}
+
+.trip-explorer-view{padding-bottom:35px}
+.explorer-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 17px}
+.explorer-summary>div{display:flex;flex-direction:column;gap:4px;padding:15px 17px;border:1px solid #eee9e1;border-radius:15px;background:#fff}
+.explorer-summary b{color:#3f5870;font-size:22px;font-weight:900}
+.explorer-summary span{color:#929baa;font-size:10px;font-weight:800}
+.explorer-filter{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 15px}
+.explorer-filter input,.explorer-filter select{min-width:0;padding:10px 12px;border:1px solid #e8e8e9;border-radius:11px;background:#fff;color:#49586d;font:inherit;font-size:12px}
+.explorer-filter input{flex:1}
+.explorer-filter select{min-width:125px}
+.explorer-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.explorer-card{display:flex;gap:13px;min-width:0;padding:16px;border:1px solid #eee8df;border-radius:17px;background:#fff;box-shadow:0 5px 18px #5d6c7d09}
+.explorer-card-icon{width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;border-radius:14px;background:#fff5e8;font-size:23px}
+.explorer-card-copy{min-width:0;flex:1}
+.explorer-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#8c98a5;font-size:10px}
+.explorer-card-top>b{color:#6d9688}
+.explorer-tag{display:inline-flex;padding:4px 8px;border-radius:20px;background:#eff7f2;color:#6d9384;font-size:9px;font-weight:900}
+.explorer-card h3{margin:7px 0 3px;color:#3c4d62;font-size:14px;overflow-wrap:anywhere}
+.explorer-card p{margin:0;color:#939ba6;font-size:10px}
+.explorer-history{display:grid;gap:6px;margin-top:10px;padding-top:9px;border-top:1px dashed #eee8e1}
+.explorer-history>div{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#8993a0;font-size:10px}
+.explorer-history button{border:0;background:#f5f8fb;border-radius:8px;padding:5px 8px;color:#6b8296;font-size:10px;font-weight:800;cursor:pointer}
+.favorite-note{display:inline-block;margin-top:8px;color:#cf8f79;font-size:10px;font-weight:900}
+.explorer-empty{grid-column:1/-1;padding:42px 18px;border:1px dashed #e9e2d9;border-radius:17px;background:#fffdfa;text-align:center;color:#9a9eaa;font-size:12px;line-height:1.7}
+.map-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin:0 0 12px;color:#748196;font-size:11px}
+.family-places-map{width:100%;height:min(68vh,680px);min-height:420px;border:1px solid #e8e5df;border-radius:18px;overflow:hidden;background:#f2f4f4}
+.map-help{margin:10px 2px;color:#929ba7;font-size:10px;line-height:1.6}
+.family-map-popup{display:grid;gap:6px;min-width:150px}
+.family-map-popup b{color:#384a60;font-size:12px}
+.family-map-popup span{color:#8993a0;font-size:10px}
+.family-map-popup button{border:0;border-radius:8px;padding:7px 9px;background:#edf6f4;color:#62887d;font-size:10px;font-weight:800;cursor:pointer}
+.family-travel-stats{display:grid;gap:15px}
+.stats-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.stats-metric-grid article{padding:17px;border:1px solid #eee8e0;border-radius:16px;background:#fff}
+.stats-metric-grid span{display:block;color:#8793a2;font-size:10px;font-weight:800}
+.stats-metric-grid b{display:block;margin-top:8px;color:#425a70;font-size:25px;font-weight:900}
+.stats-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.stats-detail-card{padding:17px;border:1px solid #eee8e0;border-radius:16px;background:#fff}
+.stats-detail-card h3{margin:0 0 13px;color:#4b5c70;font-size:13px}
+.stats-bar-line{display:grid;grid-template-columns:62px minmax(0,1fr) 27px;align-items:center;gap:8px;margin:10px 0;color:#798596;font-size:10px}
+.stats-bar-line>div{height:8px;overflow:hidden;border-radius:9px;background:#f1f2ef}
+.stats-bar-line i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#a7d2c1,#f1c4ae)}
+.stats-bar-line>b,.stats-rank-line>b{color:#627e8b;text-align:right}
+.stats-rank-line{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #f3f0eb;color:#778494;font-size:11px}
+.season-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.season-stat-grid>div{display:flex;flex-direction:column;align-items:center;gap:7px;padding:13px 6px;border-radius:12px;background:#f8f7f2;color:#83909e;font-size:10px}
+.season-stat-grid b{color:#597b79;font-size:18px}
+.stats-disclaimer{margin:0;color:#9aa2ac;font-size:10px;line-height:1.6}
+.trip-detail-extra-panel{margin:16px 0 22px;padding:18px;border:1px solid #eee8e0;border-radius:17px;background:#fffdf9}
+.detail-extra-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.detail-extra-heading h3{margin:0;color:#3e5369;font-size:15px}
+.detail-extra-heading>span{color:#8d98a4;font-size:10px}
+.detail-extra-meta{display:flex;gap:8px;flex-wrap:wrap;margin:11px 0 14px}
+.detail-extra-meta span{padding:6px 9px;border-radius:20px;background:#eff6f3;color:#738d85;font-size:10px;font-weight:800}
+.detail-extra-section{margin-top:14px}
+.detail-extra-section h4{margin:0 0 9px;color:#56677a;font-size:12px}
+.detail-day-group{margin:9px 0;padding:11px;border-radius:12px;background:#fff}
+.detail-day-group> b{display:block;margin-bottom:8px;color:#8492a1;font-size:10px}
+.detail-place-line{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-top:1px solid #f3eee8}
+.detail-place-line>span{font-size:14px}
+.detail-place-line>div{min-width:0;flex:1}
+.detail-place-line b{color:#4d5d70;font-size:12px}
+.detail-place-line small{display:block;margin-top:3px;color:#99a2ac;font-size:10px}
+.detail-place-line p,.detail-stay-line p{margin:5px 0 0;color:#7f8996;font-size:11px;line-height:1.6;white-space:pre-wrap}
+.detail-place-line em{color:#d59b85;font-style:normal}
+.detail-stay-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-radius:11px;background:#f8f7f3;margin:6px 0}
+.detail-stay-line b{color:#53677a;font-size:11px}
+.detail-stay-line span{color:#8e98a5;font-size:10px;text-align:right}
+.detail-extra-empty{margin:0;padding:11px;color:#a0a5ad;font-size:11px;background:#fff;border-radius:10px}
+.auth-child #addTripPlaceRow,.auth-child #addTripStayRow,.auth-child .extra-remove-button,.auth-child #tripModal button[type="submit"],.auth-child #deleteTripBtn{display:none!important}
+
+@media(max-width:720px){
+  .trip-extra-panel{padding:14px}
+  .trip-extra-heading{align-items:flex-start}
+  .trip-extra-heading p{max-width:270px}
+  .trip-extra-fields{gap:9px}
+  .companion-choice .companion-other{width:100%;margin-left:0}
+  .explorer-card-grid,.stats-detail-grid{grid-template-columns:1fr}
+  .stats-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .explorer-summary{gap:7px}
+  .explorer-summary>div{padding:12px}
+  .family-places-map{min-height:380px;height:58vh}
+  .detail-stay-line{align-items:flex-start;flex-direction:column;gap:4px}
+  .detail-stay-line span{text-align:left}
+}
+@media(max-width:420px){
+  .trip-extra-fields{grid-template-columns:1fr}
+  .trip-extra-fields label.wide{grid-column:auto}
+  .place-coordinates input{width:87px}
+  .coordinate-picker-backdrop{padding:8px}
+  .coordinate-picker-card{padding:11px}
+  .coordinate-picker-foot{align-items:flex-start;flex-direction:column}
+  .coordinate-picker-foot>div{width:100%}
+  .coordinate-picker-foot button{flex:1}
+  .stats-metric-grid article{padding:13px}
+  .stats-metric-grid b{font-size:22px}
+  .explorer-history>div{align-items:flex-start}
+}
