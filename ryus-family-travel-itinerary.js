@@ -459,28 +459,48 @@
     const selected = state.places.filter(item =>
       (status === 'all' || (item.status || 'visited') === status) &&
       (category === 'all' || item.category === category) &&
-      (!search || [item.name, item.region, item.address, item.memo, tripTitle(item.tripId)].join(' ').toLowerCase().includes(search))
+      (!search || [item.name,item.region,item.address,item.memo,item.cuisineType,item.orderedMenu?.join(' '),tripTitle(item.tripId)].join(' ').toLowerCase().includes(search))
     );
     const visited = state.places.filter(item => (item.status || 'visited') === 'visited');
     $('placeTotalPill').textContent = visited.length + '회 방문 · ' + groupPlaces(visited).length + '곳';
     $('placesSummary').innerHTML =
       '<div><b>' + visited.length + '</b><span>방문 기록</span></div>' +
       '<div><b>' + groupPlaces(visited).length + '</b><span>서로 다른 장소</span></div>' +
-      '<div><b>' + state.places.filter(item => item.favorite).length + '</b><span>다시 가고 싶은 곳</span></div>';
+      '<div><b>' + state.places.filter(item => item.favorite || item.revisitRecommendation).length + '</b><span>다시 가고 싶은 곳</span></div>';
     const holder = $('allFamilyPlaces');
     if (!holder) return;
-    const groups = groupPlaces(selected);
-    holder.innerHTML = groups.length ? groups.map(group => {
-      const latest = [...group.rows].sort((a, b) => String(b.visitDate || '').localeCompare(String(a.visitDate || '')))[0];
-      const history = [...group.rows].sort((a, b) => String(b.visitDate || '').localeCompare(String(a.visitDate || ''))).slice(0, 4);
-      return '<article class="explorer-card">' +
-        '<div class="explorer-card-icon">' + ({attraction:'🏞️',restaurant:'🍽️',cafe:'☕',experience:'🎨',shopping:'🛍️',other:'📌'}[group.category] || '📌') + '</div>' +
-        '<div class="explorer-card-copy"><div class="explorer-card-top"><span class="explorer-tag">' + categoryLabel(group.category) + '</span><b>' + group.rows.length + '회</b></div>' +
-        '<h3>' + escapeHTML(group.name) + '</h3><p>' + escapeHTML(group.region || locationLabel(latest)) + '</p>' +
-        '<div class="explorer-history">' + history.map(item => '<div><span>' + escapeHTML(dateText(item.visitDate || tripById(item.tripId)?.date)) + '</span><button type="button" data-trip-open="' + escapeHTML(item.tripId) + '">' + escapeHTML(tripTitle(item.tripId)) + ' 보기</button></div>').join('') + '</div>' +
-        (latest?.favorite ? '<span class="favorite-note">♡ 다시 가고 싶은 곳</span>' : '') +
-        '</div></article>';
-    }).join('') : '<div class="explorer-empty">아직 등록된 장소가 없어요. 여행 기록에서 방문 장소를 추가해 보세요.</div>';
+    const byTrip = new Map();
+    selected.forEach(item => {
+      const key = String(item.tripId);
+      if (!byTrip.has(key)) byTrip.set(key, []);
+      byTrip.get(key).push(item);
+    });
+    const icon = {attraction:'🏞️',restaurant:'🍜',cafe:'☕',experience:'🎨',shopping:'🛍️',other:'📌'};
+    const renderNode = item => {
+      const food = ['restaurant','cafe'].includes(item.category);
+      const childRows = selected.filter(child => String(child.tripId) === String(item.tripId) && child.parentPlaceClientId && String(child.parentPlaceClientId) === String(item.clientId));
+      return '<article class="place-tree-node ' + (food ? 'food-node' : '') + '">' +
+        '<div class="place-tree-main"><span class="place-tree-icon">' + (icon[item.category] || '📌') + '</span><div class="place-tree-copy">' +
+        '<div class="explorer-card-top"><span class="explorer-tag">' + categoryLabel(item.category) + '</span><b>' + escapeHTML(dateText(item.visitDate || tripById(item.tripId)?.date)) + '</b></div>' +
+        '<h4>' + escapeHTML(item.name) + '</h4><p>' + escapeHTML(item.region || locationLabel(item)) + (item.visitTime ? ' · ' + escapeHTML(item.visitTime) : '') + (item.status === 'planned' ? ' · 방문 예정' : '') + '</p>' +
+        (food && (item.cuisineType || item.mealType || item.orderedMenu?.length) ? '<div class="food-meta">' + [item.cuisineType,item.mealType,item.orderedMenu?.join(', ')].filter(Boolean).map(escapeHTML).join(' · ') + '</div>' : '') +
+        (item.memo ? '<p class="place-tree-memo">' + escapeHTML(item.memo) + '</p>' : '') +
+        (food && item.familyFeedback ? '<p class="place-tree-memo">👨‍👩‍👧 ' + escapeHTML(item.familyFeedback) + '</p>' : '') +
+        (item.revisitRecommendation || item.favorite ? '<span class="favorite-note">♡ 다시 가고 싶은 곳</span>' : '') +
+        (food && [item.dadRating,item.suhoRating,item.hyeonahRating].some(Boolean) ? '<div class="food-rating-line">' + [['아빠',item.dadRating],['수호',item.suhoRating],['현아',item.hyeonahRating]].filter(x=>x[1]).map(x=>x[0]+' '+ '★'.repeat(Number(x[1]))).map(escapeHTML).join('　') + '</div>' : '') +
+        '</div><button type="button" class="place-trip-open" data-trip-open="' + escapeHTML(item.tripId) + '">여행 기록</button></div>' +
+        (childRows.length ? '<div class="place-tree-children">' + childRows.map(child => renderNode(child)).join('') + '</div>' : '') +
+        '</article>';
+    };
+    holder.innerHTML = byTrip.size ? [...byTrip.entries()].sort((a,b) => String(tripById(b[0])?.date||'').localeCompare(String(tripById(a[0])?.date||''))).map(([tripId,rows]) => {
+      const trip = tripById(tripId);
+      const roots = rows.filter(item => !item.parentPlaceClientId || !rows.some(parent => String(parent.clientId) === String(item.parentPlaceClientId)));
+      const dateGroups = new Map();
+      roots.forEach(item => { const date=item.visitDate || trip?.date || '날짜 미입력'; if(!dateGroups.has(date))dateGroups.set(date,[]); dateGroups.get(date).push(item); });
+      return '<section class="place-trip-group"><div class="place-trip-heading"><div><b>' + escapeHTML(tripTitle(tripId)) + '</b><span>' + escapeHTML(dateRange(trip || {})) + '</span></div><button type="button" data-trip-open="' + escapeHTML(tripId) + '">여행 상세 보기</button></div>' +
+        [...dateGroups.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([date,items])=>'<div class="place-day-group"><h4>📅 '+escapeHTML(dateText(date))+'</h4>'+items.sort((a,b)=>Number(a.sequence||0)-Number(b.sequence||0)).map(renderNode).join('')+'</div>').join('')+'</section>';
+    }).join('') : '<div class="explorer-empty">아직 등록된 장소가 없어요. 여행 기록에서 관광지·맛집·카페 등을 추가해 보세요.</div>';
+    renderStays();
   }
   function renderStays() {
     const search = ($('staySearch')?.value || '').trim().toLowerCase();
