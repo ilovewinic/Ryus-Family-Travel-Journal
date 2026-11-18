@@ -383,6 +383,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let currentTripDetailId = null;
   let homeFeatureIndex = 0;
   let homeFeatureTripId = null;
+  let homeFeaturedSelection = [];
+  let homeFeaturedSelectionLoaded = false;
   let mapMarkers = [];
 
   function toast(message) {
@@ -513,14 +515,25 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const seasonEl = $('homeSeasonStats');
     if (seasonEl) seasonEl.innerHTML = [...seasonCounts.entries()].map(([name,count]) => `<span>${name} ${count}</span>`).join('');
   }
+  function getHomeFeaturedTrips() {
+    if (homeFeaturedSelection.length) {
+      const selected = homeFeaturedSelection
+        .map(id => trips.find(trip => String(trip.id) === String(id)))
+        .filter(Boolean);
+      if (selected.length) return selected;
+    }
+    return [...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+  }
   function renderHomeFeatured() {
     const image = $('homeFeatureImage');
     const title = $('homeFeatureTitle');
     const meta = $('homeFeatureMeta');
     const place = $('homeFeaturePlace');
     const dots = $('homeFeatureDots');
+    const prev = $('homeFeaturePrev');
+    const next = $('homeFeatureNext');
     if (!image || !title || !meta || !place || !dots) return;
-    const candidates = [...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+    const candidates = getHomeFeaturedTrips();
     if (!candidates.length) {
       homeFeatureTripId = null;
       image.removeAttribute('src');
@@ -529,6 +542,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       meta.textContent = '여행을 기록하면 이곳에 대표사진이 펼쳐집니다.';
       place.textContent = '🌼 첫 가족 여행을 기록해 보세요!';
       dots.innerHTML = '';
+      if (prev) prev.hidden = true;
+      if (next) next.hidden = true;
       return;
     }
     homeFeatureIndex = ((homeFeatureIndex % candidates.length) + candidates.length) % candidates.length;
@@ -547,11 +562,118 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     title.textContent = trip.title || '우리 가족의 여행';
     meta.textContent = `${dateLabel(trip.date)} · ${trip.type === 'overseas' ? (trip.country || '해외') : (trip.region || trip.place || '국내 여행')}`;
     place.textContent = `📍 ${trip.place || '여행지'} · 가족의 소중한 추억`;
-    dots.innerHTML = candidates.map((_,index) => `<button type="button" class="${index===homeFeatureIndex?'active':''}" data-home-feature-dot="${index}" aria-label="여행 사진 ${index+1} 보기"></button>`).join('');
-    dots.querySelectorAll('[data-home-feature-dot]').forEach(button => button.addEventListener('click',() => {
-      homeFeatureIndex = Number(button.dataset.homeFeatureDot);
+    dots.innerHTML = candidates.length > 1
+      ? candidates.map((_,index) => `<button type="button" class="${index===homeFeatureIndex?'active':''}" data-home-feature-dot="${index}" aria-label="여행 사진 ${index+1} 보기"></button>`).join('')
+      : '';
+    if (prev) prev.hidden = candidates.length <= 1;
+    if (next) next.hidden = candidates.length <= 1;
+  }
+  function renderHomeFeaturedChoices() {
+    const list = $('homeFeaturedChoiceList');
+    const selectedHolder = $('homeFeaturedSelected');
+    const note = $('homeFeaturedSettingsNote');
+    if (!list || !selectedHolder) return;
+    const recent = [...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    if (!recent.length) {
+      list.innerHTML = '<div class="empty-state">아직 등록된 여행이 없습니다. 여행 기록을 먼저 추가해 주세요.</div>';
+      selectedHolder.innerHTML = '';
+      if (note) note.textContent = '여행을 추가하면 메인 대표 여행으로 선택할 수 있습니다.';
+      return;
+    }
+    if (note) note.textContent = homeFeaturedSelection.length
+      ? `현재 ${homeFeaturedSelection.length}개를 선택했습니다. 선택한 순서대로 슬라이드에 표시됩니다.`
+      : '현재 자동 표시 상태입니다. 1개만 선택하면 고정 사진처럼, 2~5개를 선택하면 슬라이드로 보여줍니다.';
+    selectedHolder.innerHTML = homeFeaturedSelection.length
+      ? homeFeaturedSelection.map((id,index) => {
+          const trip = trips.find(item => String(item.id) === String(id));
+          if (!trip) return '';
+          return `<div class="home-feature-selected-chip">
+            <b>${index+1}</b><span>${escapeHTML(trip.title || '가족 여행')}</span>
+            <button type="button" data-home-feature-move="up" data-trip-id="${escapeHTML(id)}" aria-label="순서 위로" ${index===0?'disabled':''}>↑</button>
+            <button type="button" data-home-feature-move="down" data-trip-id="${escapeHTML(id)}" aria-label="순서 아래로" ${index===homeFeaturedSelection.length-1?'disabled':''}>↓</button>
+            <button type="button" data-home-feature-remove="${escapeHTML(id)}" aria-label="선택 해제">×</button>
+          </div>`;
+        }).join('')
+      : '<div class="home-feature-auto-chip">🌼 자동 표시 · 최근 여행 최대 5개</div>';
+    list.innerHTML = recent.map(trip => {
+      const id = String(trip.id);
+      const selectedIndex = homeFeaturedSelection.indexOf(id);
+      const photosForTrip = getTripPhotos(trip.id);
+      const cover = photosForTrip.find(photo => String(photo.id) === String(trip.coverPhotoId)) || photosForTrip[0];
+      const thumbnail = cover
+        ? `<img src="${blobURL(cover.id)}" alt="" />`
+        : '<span class="home-feature-choice-placeholder">🌿</span>';
+      return `<button type="button" class="home-feature-choice ${selectedIndex>=0?'selected':''}" data-home-feature-choice="${escapeHTML(id)}">
+        <span class="home-feature-choice-thumb">${thumbnail}</span>
+        <span class="home-feature-choice-copy"><b>${escapeHTML(trip.title || '우리 가족 여행')}</b><small>${escapeHTML(dateLabel(trip.date))} · ${escapeHTML(trip.place || trip.region || '장소 미입력')}</small></span>
+        <span class="home-feature-choice-state">${selectedIndex>=0 ? (selectedIndex+1)+'번째' : '선택하기'}</span>
+      </button>`;
+    }).join('');
+  }
+  async function openHomeFeaturedSettings() {
+    const modal = $('homeFeaturedSettingsModal');
+    if (!modal) return;
+    if (window.loadFamilyHomeFeaturedIds) {
+      try {
+        homeFeaturedSelection = await window.loadFamilyHomeFeaturedIds();
+        homeFeaturedSelectionLoaded = true;
+      } catch (error) {
+        console.warn('[메인 대표 여행 불러오기]', error);
+        toast(error.message || '대표 여행 설정을 불러오지 못했습니다.');
+      }
+    }
+    renderHomeFeaturedChoices();
+    modal.classList.add('open');
+  }
+  function closeHomeFeaturedSettings() {
+    $('homeFeaturedSettingsModal')?.classList.remove('open');
+  }
+  async function saveHomeFeaturedSettings() {
+    const button = $('saveHomeFeaturedSettings');
+    if (button) button.disabled = true;
+    try {
+      const ids = [...homeFeaturedSelection].slice(0,5);
+      if (window.saveFamilyHomeFeaturedIds) {
+        await window.saveFamilyHomeFeaturedIds(ids);
+      } else {
+        localStorage.setItem('ryusFamilyHomeFeatureIds_v1', JSON.stringify(ids));
+      }
+      homeFeaturedSelection = ids;
+      homeFeaturedSelectionLoaded = true;
+      homeFeatureIndex = 0;
       renderHomeFeatured();
-    }));
+      closeHomeFeaturedSettings();
+      toast(ids.length ? `첫 화면 대표 여행 ${ids.length}개를 저장했습니다. 🌷` : '최근 여행 자동 표시로 변경했습니다. 🌷');
+    } catch (error) {
+      console.error('[메인 대표 여행 저장]', error);
+      toast(error.message || '대표 여행 설정을 저장하지 못했습니다.');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+  function changeHomeFeaturedSelection(id) {
+    const key = String(id || '');
+    const index = homeFeaturedSelection.indexOf(key);
+    if (index >= 0) {
+      homeFeaturedSelection.splice(index,1);
+    } else {
+      if (homeFeaturedSelection.length >= 5) {
+        toast('첫 화면에는 최대 5개까지 선택할 수 있습니다.');
+        return;
+      }
+      homeFeaturedSelection.push(key);
+    }
+    renderHomeFeaturedChoices();
+  }
+  function moveHomeFeaturedSelection(id,direction) {
+    const index = homeFeaturedSelection.indexOf(String(id));
+    if (index < 0) return;
+    const target = direction === 'up' ? index-1 : index+1;
+    if (target < 0 || target >= homeFeaturedSelection.length) return;
+    const copy = [...homeFeaturedSelection];
+    [copy[index],copy[target]] = [copy[target],copy[index]];
+    homeFeaturedSelection = copy;
+    renderHomeFeaturedChoices();
   }
   function renderStats() {
     const regions = new Set(trips.map(regionLabelForTrip).filter(name => name && name !== '지역 미입력'));
@@ -683,10 +805,16 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     }
   };
   function setView(view) {
+    const target = $('view-' + view);
+    if (!target) {
+      console.warn('[화면 이동] 화면을 찾지 못했습니다:', view);
+      toast('이 화면을 열 수 없습니다. 새로고침 후 다시 시도해 주세요.');
+      return;
+    }
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    $('view-'+view).classList.add('active');
+    target.classList.add('active');
     document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.view===view));
-    if(view==='home'&&mainMap)setTimeout(()=>mainMap.invalidateSize(),100);
+    if(view==='home'&&mainMap)setTimeout(()=>mainMap.invalidateSize(),120);
     if(view==='photos'||view==='prints')renderPhotos();
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -863,12 +991,40 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     }
   }));
   $('mapTypeFilter').addEventListener('change',renderMap);$('mapYearFilter').addEventListener('change',renderMap);$('tripYearFilter').addEventListener('change',renderTrips);$('tripTypeFilter').addEventListener('change',renderTrips);
-  $('homeFeaturePrev')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+count-1)%count;renderHomeFeatured();}});
-  $('homeFeatureNext')?.addEventListener('click',()=>{const count=Math.min(5,trips.length);if(count){homeFeatureIndex=(homeFeatureIndex+1)%count;renderHomeFeatured();}});
+  $('homeFeaturePrev')?.addEventListener('click',()=>{const count=getHomeFeaturedTrips().length;if(count>1){homeFeatureIndex=(homeFeatureIndex+count-1)%count;renderHomeFeatured();}});
+  $('homeFeatureNext')?.addEventListener('click',()=>{const count=getHomeFeaturedTrips().length;if(count>1){homeFeatureIndex=(homeFeatureIndex+1)%count;renderHomeFeatured();}});
   $('homeFeatureOpen')?.addEventListener('click',()=>{if(homeFeatureTripId)openTripDetail(homeFeatureTripId);});
+  $('homeFeaturedSettings')?.addEventListener('click',()=>openHomeFeaturedSettings().catch(error=>toast(error.message||'설정 창을 열지 못했습니다.')));
+  $('closeHomeFeaturedSettings')?.addEventListener('click',closeHomeFeaturedSettings);
+  $('cancelHomeFeaturedSettings')?.addEventListener('click',closeHomeFeaturedSettings);
+  $('homeFeaturedSettingsModal')?.addEventListener('click',event=>{if(event.target===$('homeFeaturedSettingsModal'))closeHomeFeaturedSettings();});
+  $('homeFeaturedAuto')?.addEventListener('click',()=>{homeFeaturedSelection=[];renderHomeFeaturedChoices();});
+  $('saveHomeFeaturedSettings')?.addEventListener('click',saveHomeFeaturedSettings);
+  $('homeFeaturedChoiceList')?.addEventListener('click',event=>{
+    const choice=event.target.closest?.('[data-home-feature-choice]');
+    if(choice) changeHomeFeaturedSelection(choice.dataset.homeFeatureChoice);
+  });
+  $('homeFeaturedSelected')?.addEventListener('click',event=>{
+    const move=event.target.closest?.('[data-home-feature-move]');
+    const remove=event.target.closest?.('[data-home-feature-remove]');
+    if(move) moveHomeFeaturedSelection(move.dataset.tripId,move.dataset.homeFeatureMove);
+    if(remove) changeHomeFeaturedSelection(remove.dataset.homeFeatureRemove);
+  });
+  $('homeFeatureDots')?.addEventListener('click',event=>{
+    const dot=event.target.closest?.('[data-home-feature-dot]');
+    if(dot){homeFeatureIndex=Number(dot.dataset.homeFeatureDot)||0;renderHomeFeatured();}
+  });
   async function init(){
     try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');trips=Array.isArray(saved.trips)?saved.trips:[];photos=Array.isArray(saved.photos)?saved.photos:[];}catch(e){console.warn(e);trips=[];photos=[];}
-    await loadBlobURLs();initMap();renderAll();
+    await loadBlobURLs();
+    if (window.loadFamilyHomeFeaturedIds) {
+      try {
+        homeFeaturedSelection = await window.loadFamilyHomeFeaturedIds();
+        homeFeaturedSelectionLoaded = true;
+      } catch (error) { console.warn('[메인 대표 여행]', error); }
+    }
+    initMap();
+    renderAll();
     window.refreshFamilyHomeRecentExpenses?.().catch(error => console.warn('[최근 여행 경비]', error));
     if(!window.L){$('mapEmpty').innerHTML='<div class="big">🗺️</div><b>지도를 불러오지 못했어요.</b><span>인터넷 연결을 확인한 뒤 새로고침해 주세요.</span>';}
   }
