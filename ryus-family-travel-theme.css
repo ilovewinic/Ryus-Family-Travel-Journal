@@ -1382,8 +1382,8 @@ body.auth-child #homeFeaturedSettings{display:none!important}
    The layered mini-photo cards keep their original full-frame rendering. */
 #homeFeaturedBanner .home-feature-photo img.home-custom-crop{
   object-fit:cover!important;
-  object-position:var(--home-crop-x,50%) var(--home-crop-y,50%)!important;
-  transform:scale(var(--home-crop-zoom,1));
+  object-position:50% 50%!important;
+  transform:translate3d(var(--home-crop-tx,0%),var(--home-crop-ty,0%),0) scale(var(--home-crop-zoom,1));
   transform-origin:center center;
   will-change:transform;
 }
@@ -1770,4 +1770,58 @@ body.auth-child .home-feature-crop-action{display:none!important}
   .home-feature-photo-dots button{width:6px!important;height:6px!important;min-width:6px!important}
   .home-feature-photo-dots button.active{width:16px!important}
   .photo-selected-controls{grid-template-columns:1fr 1fr!important}
+}
+
+
+/* Mobile-first direct-manipulation crop controls.
+   Keep the editing frame ratio aligned with the actual homepage hero. */
+#representativePhotoChooser .photo-selected-preview{
+  aspect-ratio:2.25/1!important;
+  max-height:300px!important;
+  touch-action:pan-y;
+}
+#representativePhotoChooser .photo-selected-preview.is-crop-mode{
+  touch-action:none!important;
+  cursor:grab;
+}
+#representativePhotoChooser .photo-selected-preview.is-crop-mode:active{cursor:grabbing}
+#representativePhotoChooser .photo-selected-preview img{
+  transform-origin:center center!important;
+  will-change:transform;
+}
+#representativePhotoChooser .photo-selected-preview.is-crop-mode::after,
+.home-feature-crop-preview.is-crop-mode::after{
+  content:"손가락으로 사진을 끌어 위치 조정";
+  position:absolute;
+  z-index:4;
+  top:9px;
+  left:50%;
+  transform:translateX(-50%);
+  max-width:calc(100% - 18px);
+  padding:6px 10px;
+  border:1px solid rgba(255,255,255,.8);
+  border-radius:999px;
+  background:rgba(39,53,75,.78);
+  color:#fff;
+  font-size:10px;
+  font-weight:800;
+  line-height:1.2;
+  white-space:nowrap;
+  pointer-events:none;
+}
+.home-feature-crop-preview img{
+  transform-origin:center center!important;
+  will-change:transform;
+}
+@media(max-width:720px){
+  #representativePhotoChooser .photo-selected-preview{
+    aspect-ratio:1.28/1!important;
+    max-height:310px!important;
+  }
+  #representativePhotoChooser .photo-selected-preview.is-crop-mode::after,
+  .home-feature-crop-preview.is-crop-mode::after{
+    top:7px;
+    font-size:9px;
+    padding:6px 9px;
+  }
 }
