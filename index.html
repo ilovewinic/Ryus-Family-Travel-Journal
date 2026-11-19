@@ -1274,19 +1274,160 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     closeModalVisual();
     if (ownsHistory) history.back();
   }
-  function startPicker() {
-    $('mapPicker').classList.toggle('show');pickerVisible=$('mapPicker').classList.contains('show');
-    if(!pickerVisible)return;
-    setTimeout(()=>{
-      if(!window.L)return;
-      const lat=Number($('tripLat').value)||36.35,lng=Number($('tripLng').value)||127.8;
-      if(!pickerMap){pickerMap=L.map('pickerMap').setView([lat,lng],6);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(pickerMap);pickerMap.on('click',e=>setPickerPoint(e.latlng.lat,e.latlng.lng));}
-      else {pickerMap.setView([lat,lng],$('tripLat').value?10:6);}
-      pickerMap.invalidateSize();
-      if($('tripLat').value&&$('tripLng').value)setPickerPoint(lat,lng,false);
-    },120);
+  function ensurePickerMap(lat, lng, zoom = 6) {
+    if (!window.L) throw new Error('지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+    if (!pickerMap) {
+      pickerMap = L.map('pickerMap').setView([lat, lng], zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+      }).addTo(pickerMap);
+      pickerMap.on('click', event => setPickerPoint(event.latlng.lat, event.latlng.lng));
+    } else {
+      pickerMap.setView([lat, lng], zoom);
+    }
+    pickerMap.invalidateSize();
   }
-  function setPickerPoint(lat,lng,notify=true){$('tripLat').value=lat.toFixed(6);$('tripLng').value=lng.toFixed(6);if(pickerMarker)pickerMap.removeLayer(pickerMarker);pickerMarker=L.marker([lat,lng]).addTo(pickerMap);$('coordNote').textContent=`위치 선택 완료 · ${lat.toFixed(4)}, ${lng.toFixed(4)} · 다른 위치를 누르면 변경됩니다.`;if(notify)toast('지도 위치를 선택했어요.');}
+
+  function startPicker() {
+    $('mapPicker').classList.toggle('show');
+    pickerVisible = $('mapPicker').classList.contains('show');
+    if (!pickerVisible) return;
+    setTimeout(() => {
+      const hasPoint = Boolean($('tripLat').value && $('tripLng').value);
+      const lat = hasPoint ? Number($('tripLat').value) : 36.35;
+      const lng = hasPoint ? Number($('tripLng').value) : 127.8;
+      try {
+        ensurePickerMap(lat, lng, hasPoint ? 15 : 6);
+        if (hasPoint) setPickerPoint(lat, lng, false);
+      } catch (error) {
+        $('coordNote').textContent = error.message || '지도를 불러오지 못했습니다.';
+      }
+    }, 120);
+  }
+
+  function setPickerPoint(lat, lng, notify = true) {
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return;
+    const pointLat = Number(lat), pointLng = Number(lng);
+    $('tripLat').value = pointLat.toFixed(6);
+    $('tripLng').value = pointLng.toFixed(6);
+    if (pickerMarker && pickerMap) pickerMap.removeLayer(pickerMarker);
+    if (pickerMap) pickerMarker = L.marker([pointLat, pointLng]).addTo(pickerMap);
+    $('coordNote').textContent = `위치 선택 완료 · ${pointLat.toFixed(5)}, ${pointLng.toFixed(5)} · 지도에서 다른 곳을 누르면 위치를 미세 조정할 수 있습니다.`;
+    if (notify) toast('지도 위치를 선택했어요.');
+  }
+
+  function renderAddressSearchResults(results, message = '') {
+    const holder = $('addressSearchResults');
+    if (!holder) return;
+    holder.replaceChildren();
+    if (message) {
+      const note = document.createElement('span');
+      note.className = 'address-search-help';
+      note.textContent = message;
+      holder.appendChild(note);
+    }
+    if (!results?.length) return;
+    results.forEach((result, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'address-search-result';
+      button.dataset.addressResultIndex = String(index);
+      const title = document.createElement('strong');
+      title.textContent = result.name || String(result.display_name || '검색 결과').split(',')[0];
+      const address = document.createElement('small');
+      address.textContent = result.display_name || '';
+      button.append(title, address);
+      holder.appendChild(button);
+    });
+  }
+
+  async function searchTripAddress() {
+    const input = $('tripAddressSearch');
+    const button = $('searchTripAddress');
+    const query = String(input?.value || '').trim();
+    if (!query) {
+      toast('주소나 장소명을 먼저 입력해 주세요.');
+      input?.focus();
+      return;
+    }
+    if (button?.disabled) return;
+    const country = String($('tripCountry')?.value || '').trim();
+    const region = String($('tripRegion')?.value || '').trim();
+    const parts = [query, region, country].filter(Boolean);
+    const searchText = [...new Set(parts)].join(', ');
+    const cacheKey = searchText.toLocaleLowerCase();
+    button.disabled = true;
+    button.textContent = '검색 중…';
+    renderAddressSearchResults([], '주소 검색 중입니다. 잠시만 기다려 주세요.');
+    try {
+      let results = addressSearchCache.get(cacheKey);
+      if (!results) {
+        const wait = Math.max(0, 1100 - (Date.now() - lastAddressSearchAt));
+        if (wait) await new Promise(resolve => setTimeout(resolve, wait));
+        lastAddressSearchAt = Date.now();
+        const url = new URL('https://nominatim.openstreetmap.org/search');
+        url.search = new URLSearchParams({
+          q: searchText,
+          format: 'jsonv2',
+          limit: '5',
+          addressdetails: '1',
+          'accept-language': 'ko'
+        }).toString();
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          referrerPolicy: 'strict-origin-when-cross-origin'
+        });
+        if (!response.ok) throw new Error('주소 검색 서비스 응답 오류 (' + response.status + ')');
+        results = await response.json();
+        if (!Array.isArray(results)) throw new Error('주소 검색 결과를 확인할 수 없습니다.');
+        addressSearchCache.set(cacheKey, results);
+      }
+      addressSearchItems = results.slice(0, 5);
+      if (!addressSearchItems.length) {
+        renderAddressSearchResults([], '검색 결과가 없습니다. 시·군·구를 포함해 주소를 조금 더 자세히 입력해 보세요.');
+      } else {
+        renderAddressSearchResults(addressSearchItems, '가장 알맞은 위치를 선택하세요. 선택 후 지도에서 핀 위치를 다시 조정할 수 있습니다.');
+      }
+    } catch (error) {
+      console.error('[주소 검색]', error);
+      addressSearchItems = [];
+      renderAddressSearchResults([], error.message || '주소 검색에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      button.disabled = false;
+      button.textContent = '주소 검색';
+    }
+  }
+
+  function chooseAddressSearchResult(index) {
+    const result = addressSearchItems[Number(index)];
+    if (!result) return;
+    const lat = Number(result.lat), lng = Number(result.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      toast('검색 결과에 지도 좌표가 없습니다. 다른 결과를 선택해 주세요.');
+      return;
+    }
+    const picker = $('mapPicker');
+    picker.classList.add('show');
+    pickerVisible = true;
+    setTimeout(() => {
+      try {
+        ensurePickerMap(lat, lng, 16);
+        setPickerPoint(lat, lng, false);
+        const address = result.address || {};
+        const inferredRegion = address.city || address.municipality || address.town ||
+          address.county || address.state || address.province || '';
+        if (!$('tripPlace').value.trim() && result.name) $('tripPlace').value = result.name;
+        if (!$('tripRegion').value.trim() && inferredRegion) $('tripRegion').value = inferredRegion;
+        $('coordNote').textContent = '주소 검색 위치: ' + (result.display_name || result.name || '선택한 장소') +
+          ' · 정확한 위치는 지도에서 핀을 다시 조정해 주세요.';
+        $('pickerMap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (error) {
+        $('coordNote').textContent = error.message || '지도에 위치를 표시하지 못했습니다.';
+      }
+    }, 120);
+  }
   const pendingPreviewUrls = new Set();
   function renderPendingPhotoPreview(){
     pendingPreviewUrls.forEach(url=>URL.revokeObjectURL(url));
