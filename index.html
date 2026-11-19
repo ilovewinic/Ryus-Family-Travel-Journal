@@ -357,10 +357,19 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 </div>
 
 <!-- photo lightbox -->
-<div class="lightbox" id="lightbox"><div class="lightbox-inner"><div class="lightbox-title" id="lightboxTitle"></div><img id="lightboxImage" alt="여행 사진 크게 보기" /><div class="lightbox-controls"><button class="secondary" id="downloadOriginal">원본 다운로드 ⬇</button><button class="secondary" id="deletePhotoBtn"
+<div class="lightbox" id="lightbox"><div class="lightbox-inner">
+  <div class="lightbox-title-row"><div class="lightbox-title" id="lightboxTitle"></div><span class="lightbox-count" id="lightboxCount">1 / 1</span></div>
+  <div class="lightbox-stage">
+    <button type="button" class="lightbox-nav prev" id="lightboxPrev" aria-label="이전 사진" hidden>‹</button>
+    <img id="lightboxImage" alt="여행 사진 크게 보기" />
+    <button type="button" class="lightbox-nav next" id="lightboxNext" aria-label="다음 사진" hidden>›</button>
+  </div>
+  <div class="lightbox-swipe-hint" id="lightboxSwipeHint" hidden>화면을 좌우로 밀어 사진 넘기기</div>
+  <div class="lightbox-controls"><button class="secondary" id="downloadOriginal">원본 다운로드 ⬇</button><button class="secondary" id="deletePhotoBtn"
 style="background:#fff0ec;color:#bd655b;display:none;">
 사진 삭제 🗑
-</button><button class="secondary" id="closeLightbox">닫기</button></div></div></div>
+</button><button class="secondary" id="closeLightbox">닫기</button></div>
+</div></div>
 <div class="toast" id="toast"></div>
 <script src="./ryus-family-travel-supabase-auth.js?v=photo-delete-20261118-1"></script>
 <script src="./ryus-family-travel-r2.js?v=photo-delete-20261118-1"></script>
@@ -381,6 +390,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let pickerVisible = false;
   let pendingFiles = [];
   let currentLightboxPhoto = null;
+  let currentLightboxPhotoIds = [];
+  let currentLightboxIndex = 0;
+  let lightboxTouchStart = null;
   let currentTripDetailId = null;
   let homeFeatureIndex = 0;
   let homeFeatureTripId = null;
@@ -417,6 +429,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     $('lightbox').classList.remove('open');
     $('lightboxImage').src = '';
     currentLightboxPhoto = null;
+    currentLightboxPhotoIds = [];
+    currentLightboxIndex = 0;
+    lightboxTouchStart = null;
   }
   function closeLightbox() {
     const ownsHistory = history.state?.[OVERLAY_HISTORY_KEY] === 'photo';
@@ -874,8 +889,16 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       })
     );
 
-    document.querySelectorAll('[data-open-photo]').forEach(el =>
-      el.addEventListener('click', () => openLightbox(el.dataset.openPhoto))
+    document.querySelectorAll('#allPhotos [data-open-photo], #printPhotos [data-open-photo]').forEach(el =>
+      el.addEventListener('click', () => {
+        const album = el.closest('.photo-album-group');
+        const printArea = el.closest('#printPhotos');
+        const source = album || printArea;
+        const ids = source
+          ? [...source.querySelectorAll('[data-open-photo]')].map(item => item.dataset.openPhoto)
+          : [...photos].reverse().map(item => item.id);
+        openLightbox(el.dataset.openPhoto, ids);
+      })
     );
   }
   function renderAll() {renderStats();refreshMapFilters();renderMap();renderTrips();renderHomeFeatured();renderPhotos();}
@@ -1053,7 +1076,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   hydrateImages($('tripDetailPhotos'));
 
   $('tripDetailPhotos').querySelectorAll('[data-open-photo]').forEach(el => {
-    el.addEventListener('click', () => openLightbox(el.dataset.openPhoto));
+    el.addEventListener('click', () => openLightbox(el.dataset.openPhoto, tripPhotos.map(photo => photo.id)));
   });
 
   $('tripDetailPhotos').querySelectorAll('[data-add-print]').forEach(btn => {
@@ -1073,24 +1096,60 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   window.refreshFamilyTripDetail = function(id) {
     if ($('tripDetailModal')?.classList.contains('open')) openTripDetail(id || currentTripDetailId);
   };
-  async function openLightbox(id) {
-    const p = getPhoto(String(id));
-    if (!p) return;
+  function normalizeLightboxPhotoIds(ids, currentId) {
+    const source = Array.isArray(ids) && ids.length
+      ? ids.map(String)
+      : [...photos].reverse().map(photo => String(photo.id));
+    const seen = new Set();
+    const valid = source.filter(id => {
+      if (!id || seen.has(id) || !getPhoto(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    const current = String(currentId || '');
+    if (current && getPhoto(current) && !seen.has(current)) valid.push(current);
+    return valid;
+  }
+
+  async function renderLightboxPhotoAt(index) {
+    if (!currentLightboxPhotoIds.length) {
+      closeLightbox();
+      return;
+    }
+    const length = currentLightboxPhotoIds.length;
+    currentLightboxIndex = ((index % length) + length) % length;
+    let id = currentLightboxPhotoIds[currentLightboxIndex];
+    let p = getPhoto(String(id));
+    if (!p) {
+      currentLightboxPhotoIds = currentLightboxPhotoIds.filter(photoId => !!getPhoto(photoId));
+      if (!currentLightboxPhotoIds.length) {
+        closeLightbox();
+        return;
+      }
+      return renderLightboxPhotoAt(Math.min(currentLightboxIndex, currentLightboxPhotoIds.length - 1));
+    }
+
     const token = ++lightboxOpenToken;
     currentLightboxPhoto = p;
-    $('deletePhotoBtn').style.display =
+    const deleteButton = $('deletePhotoBtn');
+    deleteButton.style.display =
       window.isFamilyPhotoParent?.() && window.deleteFamilyPhotoFromCloud
         ? 'inline-flex'
         : 'none';
+    deleteButton.disabled = false;
+
     const t = getTrip(p.tripId);
-    $('lightboxTitle').textContent = `${t?.title || '여행 사진'} · ${p.name}`;
+    $('lightboxTitle').textContent = `${t?.title || '여행 사진'} · ${p.name || '여행 사진'}`;
+    $('lightboxCount').textContent = `${currentLightboxIndex + 1} / ${length}`;
     $('lightboxImage').src = '';
     $('lightboxImage').alt = p.name || '여행 사진';
-    $('lightbox').classList.add('open');
-    pushOverlayHistory('photo');
+    $('lightboxImage').setAttribute('aria-label', `${currentLightboxIndex + 1}번째 사진`);
+    $('lightboxPrev').hidden = length < 2;
+    $('lightboxNext').hidden = length < 2;
+    $('lightboxSwipeHint').hidden = length < 2;
 
     try {
-      const url = await resizedURL(String(id), 2000);
+      const url = await resizedURL(String(id), 2200);
       if (token !== lightboxOpenToken || !currentLightboxPhoto || String(currentLightboxPhoto.id) !== String(id)) return;
       if (url) $('lightboxImage').src = url;
       else toast('사진 파일을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
@@ -1099,6 +1158,58 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       if (token === lightboxOpenToken) toast('사진을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
   }
+
+  async function openLightbox(id, photoIds = null) {
+    const p = getPhoto(String(id));
+    if (!p) return;
+    const alreadyOpen = $('lightbox').classList.contains('open');
+    currentLightboxPhotoIds = normalizeLightboxPhotoIds(photoIds, id);
+    currentLightboxIndex = Math.max(0, currentLightboxPhotoIds.indexOf(String(id)));
+    $('lightbox').classList.add('open');
+    if (!alreadyOpen) pushOverlayHistory('photo');
+    await renderLightboxPhotoAt(currentLightboxIndex);
+  }
+
+  function moveLightboxPhoto(direction) {
+    if (!$('lightbox').classList.contains('open') || currentLightboxPhotoIds.length < 2) return;
+    renderLightboxPhotoAt(currentLightboxIndex + direction);
+  }
+
+  $('lightboxPrev').addEventListener('click', () => moveLightboxPhoto(-1));
+  $('lightboxNext').addEventListener('click', () => moveLightboxPhoto(1));
+
+  const swipeImage = $('lightboxImage');
+  swipeImage.addEventListener('dragstart', event => event.preventDefault());
+  swipeImage.addEventListener('touchstart', event => {
+    if (!event.touches || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    lightboxTouchStart = { x: touch.clientX, y: touch.clientY };
+  }, { passive: true });
+  swipeImage.addEventListener('touchend', event => {
+    if (!lightboxTouchStart || !event.changedTouches || !event.changedTouches.length) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - lightboxTouchStart.x;
+    const dy = touch.clientY - lightboxTouchStart.y;
+    lightboxTouchStart = null;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    moveLightboxPhoto(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  swipeImage.addEventListener('touchcancel', () => { lightboxTouchStart = null; }, { passive: true });
+
+  document.addEventListener('keydown', event => {
+    if (!$('lightbox').classList.contains('open')) return;
+    if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      moveLightboxPhoto(1);
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      moveLightboxPhoto(-1);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeLightbox();
+    }
+  });
   $('downloadOriginal').addEventListener('click',()=>{if(!currentLightboxPhoto)return;const p=currentLightboxPhoto;const url=blobURL(p.id);const a=document.createElement('a');a.href=url;a.download=p.name||'family-trip-photo';document.body.appendChild(a);a.click();a.remove();toast('원본 사진 다운로드를 시작했어요.');});
 
     $('deletePhotoBtn').addEventListener('click', async () => {
@@ -1132,12 +1243,19 @@ style="background:#fff0ec;color:#bd655b;display:none;">
         }
       }
 
-      photos = photos.filter(item => item.id !== photo.id);
-
-      closeLightbox();
+      const oldIndex = currentLightboxIndex;
+      photos = photos.filter(item => String(item.id) !== String(photo.id));
+      currentLightboxPhotoIds = currentLightboxPhotoIds.filter(id => String(id) !== String(photo.id));
 
       persist();
       renderAll();
+
+      if (currentLightboxPhotoIds.length) {
+        currentLightboxPhotoIds = normalizeLightboxPhotoIds(currentLightboxPhotoIds);
+        await renderLightboxPhotoAt(Math.min(oldIndex, currentLightboxPhotoIds.length - 1));
+      } else {
+        closeLightbox();
+      }
       toast('사진을 삭제했습니다. 🗑️');
     } catch (error) {
       console.error('[사진 삭제 실패]', error);
