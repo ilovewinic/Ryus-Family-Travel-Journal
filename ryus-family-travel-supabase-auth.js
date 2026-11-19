@@ -725,7 +725,7 @@
             representativeCropDraft.y = 50;
             representativeCropDraft.zoom = 1;
             updateRepresentativeCropPreview();
-            toast('처음 구도로 돌아갔습니다. 저장 버튼을 눌러 적용해 주세요.');
+            notifyToast('처음 구도로 돌아갔습니다. 저장 버튼을 눌러 적용해 주세요.');
           }
           return;
         }
@@ -846,6 +846,23 @@
 
     setTimeout(renderCardCovers, 500);
     setTimeout(() => renderHomeRecentExpenses().catch(showEnhancementError), 650);
+  }
+
+  function notifyToast(message) {
+    const text = String(message ?? '');
+    if (typeof window.showFamilyToast === 'function') {
+      window.showFamilyToast(text);
+      return;
+    }
+    const el = document.getElementById('toast');
+    if (el) {
+      el.textContent = text;
+      el.classList.add('show');
+      clearTimeout(notifyToast.timer);
+      notifyToast.timer = setTimeout(() => el.classList.remove('show'), 2300);
+      return;
+    }
+    console.info('[가족 여행 알림]', text);
   }
 
   function showEnhancementError(error) {
@@ -1024,9 +1041,9 @@
       await window.refreshFamilyHomeFeaturedCropSettings?.();
       await renderRepresentativeChooser();
       if (synced) {
-        toast('대표사진 구도를 저장했습니다. 🌷');
+        notifyToast('대표사진 구도를 저장했습니다. 🌷');
       } else {
-        toast('이 기기에는 저장했습니다. 가족 기기 동기화는 Supabase SQL 설정 후 가능합니다.');
+        notifyToast('이 기기에는 저장했습니다. 가족 기기 동기화는 Supabase SQL 설정 후 가능합니다.');
       }
     } catch (error) {
       console.error('[대표사진 구도 저장]', error);
@@ -1245,7 +1262,7 @@
       await renderRepresentativeChooser();
       await renderCardCovers();
       window.refreshFamilyTripDetail?.(tripId);
-      toast('사진을 화면에서 먼저 제거했습니다. 클라우드 정리 중…');
+      notifyToast('사진을 화면에서 먼저 제거했습니다. 클라우드 정리 중…');
 
       if (wasRepresentative) await updateTripCoverSelection(tripId, previousCoverIds.filter(value => value !== id));
 
@@ -1257,7 +1274,7 @@
       await renderRepresentativeChooser();
       await renderCardCovers();
       window.refreshFamilyTripDetail?.(tripId);
-      toast('사진을 가족 앨범에서 삭제했습니다.');
+      notifyToast('사진을 가족 앨범에서 삭제했습니다.');
     } catch (error) {
       // Restore the local record if the server could not complete the deletion.
       const restored = localState();
@@ -1309,7 +1326,7 @@
         if (activeRepresentativePhotoId === id) activeRepresentativePhotoId = nextIds[0] || null;
       } else {
         if (currentIds.length >= 3) {
-          toast('여행마다 대표사진은 최대 3장까지 선택할 수 있습니다.');
+          notifyToast('여행마다 대표사진은 최대 3장까지 선택할 수 있습니다.');
           return;
         }
         nextIds = [...currentIds, id];
@@ -1322,7 +1339,7 @@
     saveLocalState(state);
     const coverSave = await updateTripCoverSelection(tripId, nextIds);
     if (!coverSave.multipleSynced && nextIds.length > 1) {
-      toast('이 기기에는 ' + nextIds.length + '장을 저장했습니다. 가족 기기에도 3장을 공유하려면 Supabase SQL 설정이 필요합니다.');
+      notifyToast('이 기기에는 ' + nextIds.length + '장을 저장했습니다. 가족 기기에도 3장을 공유하려면 Supabase SQL 설정이 필요합니다.');
     }
     await window.refreshFamilyTravelHome?.();
     await renderRepresentativeChooser();
