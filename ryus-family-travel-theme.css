@@ -1825,3 +1825,101 @@ body.auth-child .home-feature-crop-action{display:none!important}
     padding:6px 9px;
   }
 }
+
+
+/* Address lookup alongside the map picker */
+.address-search-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  align-items:stretch;
+  margin:7px 0 9px;
+}
+.address-search-row input{
+  width:100%;
+  min-width:0;
+  min-height:42px;
+  padding:10px 12px;
+  border:1px solid #e7dcd2;
+  border-radius:11px;
+  background:#fffefa;
+  color:#526175;
+  font:inherit;
+  font-size:12px;
+}
+.address-search-row button{
+  min-width:88px;
+  padding:9px 13px;
+  border-radius:11px;
+  background:#f4a19a;
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+}
+.address-search-row button:disabled{opacity:.58;cursor:wait}
+.address-search-results{
+  display:grid;
+  gap:6px;
+  max-height:220px;
+  overflow:auto;
+  overscroll-behavior:contain;
+  margin:0 0 7px;
+}
+.address-search-help{
+  display:block;
+  padding:8px 10px;
+  border:1px dashed #eadbd0;
+  border-radius:10px;
+  background:#fffdf9;
+  color:#9a877c;
+  font-size:10px;
+  line-height:1.5;
+}
+.address-search-result{
+  display:grid;
+  gap:3px;
+  width:100%;
+  padding:9px 11px;
+  border:1px solid #e9ded5;
+  border-radius:10px;
+  background:#fff;
+  color:#536176;
+  text-align:left;
+}
+.address-search-result:active,
+.address-search-result:focus-visible{
+  border-color:#e8a49e;
+  background:#fff5f1;
+  outline:2px solid #f3d4cf;
+}
+.address-search-result strong{
+  overflow:hidden;
+  color:#70584d;
+  font-size:11px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.address-search-result small{
+  display:-webkit-box;
+  overflow:hidden;
+  color:#8d8b91;
+  font-size:9px;
+  line-height:1.45;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+.address-search-attribution{
+  margin:0 0 12px;
+  color:#a0958b;
+  font-size:9px;
+  line-height:1.5;
+}
+.map-location-label{
+  display:block;
+  margin:5px 0 7px;
+}
+@media(max-width:520px){
+  .address-search-row{grid-template-columns:minmax(0,1fr) 82px;gap:6px}
+  .address-search-row button{min-width:0;padding:8px 7px;font-size:10px}
+  .address-search-row input{font-size:11px}
+}
