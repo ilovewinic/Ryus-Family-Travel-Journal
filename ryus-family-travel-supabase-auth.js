@@ -714,6 +714,7 @@
         const modeButton = event.target.closest?.('[data-representative-crop-mode]');
         if (modeButton && representativeCropDraft) {
           representativeCropDraft.mode = modeButton.dataset.representativeCropMode === 'crop' ? 'crop' : 'full';
+          if (representativeCropDraft.mode === 'crop' && Number(representativeCropDraft.zoom) <= 1.01) representativeCropDraft.zoom = 1.35;
           updateRepresentativeCropPreview();
           return;
         }
@@ -734,31 +735,7 @@
         if (event.target.matches?.('#representativeCropY')) representativeCropDraft.y = Number(event.target.value);
         if (event.target.matches?.('#representativeCropZoom, #representativeCropX, #representativeCropY')) updateRepresentativeCropPreview();
       });
-      chooser.addEventListener('pointerdown', event => {
-        const preview = event.target.closest?.('#representativeCropPreview');
-        if (!preview || !representativeCropDraft || representativeCropDraft.mode !== 'crop') return;
-        representativeCropDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-        try { preview.setPointerCapture(event.pointerId); } catch (_) {}
-        event.preventDefault();
-      });
-      chooser.addEventListener('pointermove', event => {
-        if (!representativeCropDrag || !representativeCropDraft || event.pointerId !== representativeCropDrag.pointerId) return;
-        const preview = document.getElementById('representativeCropPreview');
-        if (!preview) return;
-        const rect = preview.getBoundingClientRect();
-        const dx = event.clientX - representativeCropDrag.x;
-        const dy = event.clientY - representativeCropDrag.y;
-        representativeCropDraft.x = Math.max(0, Math.min(100, representativeCropDraft.x - dx / Math.max(1, rect.width) * 100));
-        representativeCropDraft.y = Math.max(0, Math.min(100, representativeCropDraft.y - dy / Math.max(1, rect.height) * 100));
-        representativeCropDrag.x = event.clientX;
-        representativeCropDrag.y = event.clientY;
-        updateRepresentativeCropPreview();
-      });
-      const finishRepresentativeCropDrag = event => {
-        if (representativeCropDrag && (!event || event.pointerId === representativeCropDrag.pointerId)) representativeCropDrag = null;
-      };
-      chooser.addEventListener('pointerup', finishRepresentativeCropDrag);
-      chooser.addEventListener('pointercancel', finishRepresentativeCropDrag);
+      // Drag listeners are attached directly to each rendered crop preview for reliable touch handling.
       existingPhotos.insertAdjacentElement('afterend', chooser);
     }
 
@@ -881,6 +858,39 @@
       zoom: clamp(numeric(value.zoom, 1), 1, 2.6)
     };
   }
+  function attachRepresentativeCropDrag(preview) {
+    if (!preview) return;
+    preview.style.touchAction = representativeCropDraft?.mode === 'crop' ? 'none' : 'pan-y';
+    preview.addEventListener('pointerdown', event => {
+      if (!representativeCropDraft || representativeCropDraft.mode !== 'crop') return;
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      representativeCropDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+      try { preview.setPointerCapture(event.pointerId); } catch (_) {}
+      event.preventDefault();
+    });
+    preview.addEventListener('pointermove', event => {
+      if (!representativeCropDrag || !representativeCropDraft || event.pointerId !== representativeCropDrag.pointerId) return;
+      const rect = preview.getBoundingClientRect();
+      const zoom = Math.max(1.01, Number(representativeCropDraft.zoom) || 1);
+      const maxOffsetX = Math.max(1, rect.width * (zoom - 1) / 2);
+      const maxOffsetY = Math.max(1, rect.height * (zoom - 1) / 2);
+      const dx = event.clientX - representativeCropDrag.x;
+      const dy = event.clientY - representativeCropDrag.y;
+      representativeCropDraft.x = Math.max(0, Math.min(100, representativeCropDraft.x - dx / maxOffsetX * 50));
+      representativeCropDraft.y = Math.max(0, Math.min(100, representativeCropDraft.y - dy / maxOffsetY * 50));
+      representativeCropDrag.x = event.clientX;
+      representativeCropDrag.y = event.clientY;
+      updateRepresentativeCropPreview();
+      event.preventDefault();
+    });
+    const finish = event => {
+      if (representativeCropDrag && (!event || event.pointerId === representativeCropDrag.pointerId)) representativeCropDrag = null;
+    };
+    preview.addEventListener('pointerup', finish);
+    preview.addEventListener('pointercancel', finish);
+    preview.addEventListener('lostpointercapture', finish);
+  }
+
   function updateRepresentativeCropPreview() {
     const draft = representativeCropDraft;
     const preview = document.getElementById('representativeCropPreview');
@@ -896,8 +906,13 @@
     Object.assign(draft, crop);
     preview.classList.toggle('is-crop-mode', crop.mode === 'crop');
     image.style.objectFit = crop.mode === 'crop' ? 'cover' : 'contain';
-    image.style.objectPosition = crop.x + '% ' + crop.y + '%';
-    image.style.transform = crop.mode === 'crop' ? 'scale(' + crop.zoom + ')' : 'none';
+    image.style.objectPosition = '50% 50%';
+    image.style.transformOrigin = 'center center';
+    const translateX = (50 - crop.x) * (crop.zoom - 1);
+    const translateY = (50 - crop.y) * (crop.zoom - 1);
+    image.style.transform = crop.mode === 'crop'
+      ? 'translate3d(' + translateX + '%, ' + translateY + '%, 0) scale(' + crop.zoom + ')'
+      : 'none';
     if (slider) { slider.value = String(crop.zoom); slider.disabled = crop.mode !== 'crop'; }
     if (xSlider) { xSlider.value = String(crop.x); xSlider.disabled = crop.mode !== 'crop'; }
     if (ySlider) { ySlider.value = String(crop.y); ySlider.disabled = crop.mode !== 'crop'; }
@@ -909,8 +924,8 @@
     });
     const hint = document.getElementById('representativeCropHint');
     if (hint) hint.textContent = crop.mode === 'crop'
-      ? '사진을 드래그하거나 가로·세로 위치 막대를 움직여 보여줄 부분을 정하세요. 0은 왼쪽/위쪽, 100은 오른쪽/아래쪽입니다.'
-      : '사진 전체가 메인 화면에 보입니다. 일부 확대를 선택하면 가로·세로 위치를 따로 조절할 수 있어요.';
+      ? '사진을 손가락으로 직접 끌어 위치를 정하세요. 확대 배율을 올리면 좌우·상하로 더 넓게 움직일 수 있습니다.'
+      : '일부 확대를 누른 뒤 사진을 손가락으로 움직여 원하는 부분을 골라 주세요.';
   }
 
   async function saveRepresentativePhotoCrop() {
@@ -1078,9 +1093,9 @@
         <span class="photo-selected-status">${selectedIds.length} / 3장</span>
       </div>
       <div class="photo-selected-chips">${selectedChips}</div>
-      <div class="photo-selected-preview ${crop.mode === 'crop' ? 'is-crop-mode' : ''}" id="representativeCropPreview">
+      <div class="photo-selected-preview ${crop.mode === 'crop' ? 'is-crop-mode' : ''}" id="representativeCropPreview" aria-label="손가락으로 움직여 대표사진 구도를 조절하는 미리보기">
         ${imageUrl ? '<img id="representativeCropImage" alt="선택한 대표사진 미리보기" draggable="false" />' : '<span class="photo-selected-missing">사진 미리보기를 불러오지 못했습니다.</span>'}
-        <span class="photo-selected-preview-label">메인 화면 큰 사진 미리보기</span>
+        <span class="photo-selected-preview-label">메인 화면 대표사진 영역 · 손가락으로 이동</span>
       </div>
       <div class="photo-selected-controls">
         <div class="photo-selected-mode">
@@ -1103,6 +1118,8 @@
       </div>
     `;
     const selectedImage = document.getElementById('representativeCropImage');
+    const cropPreview = document.getElementById('representativeCropPreview');
+    if (cropPreview) attachRepresentativeCropDrag(cropPreview);
     if (selectedImage && imageUrl) {
       selectedImage.src = imageUrl;
       updateRepresentativeCropPreview();
