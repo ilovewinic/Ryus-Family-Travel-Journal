@@ -178,6 +178,7 @@
   }
 
   const HOME_FEATURED_STORAGE_KEY = 'ryusFamilyHomeFeatureIds_v1';
+  const HOME_FEATURED_CROPS_STORAGE_KEY = 'ryusFamilyHomeFeatureCrops_v1';
   function cleanHomeFeaturedIds(values) {
     if (!Array.isArray(values)) return [];
     return [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))].slice(0, 5);
@@ -225,6 +226,71 @@
     }
     localStorage.setItem(HOME_FEATURED_STORAGE_KEY, JSON.stringify(ids));
     return ids;
+  };
+  function cleanHomeFeatureCrops(values) {
+    if (!values || typeof values !== 'object' || Array.isArray(values)) return {};
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const cleaned = {};
+    Object.entries(values).forEach(([photoId, value]) => {
+      if (!photoId || !value || typeof value !== 'object') return;
+      const number = (candidate, fallback) => Number.isFinite(Number(candidate)) ? Number(candidate) : fallback;
+      cleaned[String(photoId)] = {
+        mode: value.mode === 'crop' ? 'crop' : 'full',
+        x: clamp(number(value.x, 50), 0, 100),
+        y: clamp(number(value.y, 50), 0, 100),
+        zoom: clamp(number(value.zoom, 1), 1, 2.6)
+      };
+    });
+    return cleaned;
+  }
+  function readLocalHomeFeatureCrops() {
+    try {
+      return cleanHomeFeatureCrops(JSON.parse(localStorage.getItem(HOME_FEATURED_CROPS_STORAGE_KEY) || '{}'));
+    } catch (_) {
+      return {};
+    }
+  }
+  window.loadFamilyHomeFeaturedCrops = async function() {
+    const localCrops = readLocalHomeFeatureCrops();
+    if (!client || !familyProfile) return localCrops;
+    const { data, error } = await client
+      .from('family_home_settings')
+      .select('featured_photo_crops')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      if (error.code === '42703' || error.code === 'PGRST204' ||
+          /featured_photo_crops|schema cache|column .* does not exist/i.test(String(error.message || ''))) {
+        console.warn('[대표사진 구도] Supabase 칸이 아직 없습니다. SQL 확장 후 가족 기기 간 동기화가 가능합니다.');
+        return localCrops;
+      }
+      throw new Error('대표사진 구도를 불러오지 못했습니다: ' + error.message);
+    }
+    const crops = cleanHomeFeatureCrops(data?.featured_photo_crops || {});
+    localStorage.setItem(HOME_FEATURED_CROPS_STORAGE_KEY, JSON.stringify(crops));
+    return crops;
+  };
+  window.saveFamilyHomeFeaturedCrops = async function(values) {
+    if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 대표사진 구도를 변경할 수 있습니다.');
+    const crops = cleanHomeFeatureCrops(values);
+    localStorage.setItem(HOME_FEATURED_CROPS_STORAGE_KEY, JSON.stringify(crops));
+    if (!client || !familyProfile) return { synced: false };
+    const { error } = await client
+      .from('family_home_settings')
+      .upsert({
+        id: 1,
+        featured_trip_ids: readLocalHomeFeaturedIds(),
+        featured_photo_crops: crops,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    if (error) {
+      if (error.code === '42703' || error.code === 'PGRST204' ||
+          /featured_photo_crops|schema cache|column .* does not exist/i.test(String(error.message || ''))) {
+        return { synced: false, reason: 'migration-required' };
+      }
+      throw new Error(error.message);
+    }
+    return { synced: true };
   };
   async function getFamilyProfile(userId) {
     const { data, error } = await client
