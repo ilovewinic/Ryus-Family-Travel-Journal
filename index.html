@@ -946,6 +946,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     $('homeFeaturedCropModal')?.classList.remove('open');
     homeFeaturedCropDraft = null;
     homeFeaturedCropDrag = null;
+    homeCropPointers.clear();
+    homeCropGesture = null;
   }
 
   async function saveHomeFeaturedCrop() {
