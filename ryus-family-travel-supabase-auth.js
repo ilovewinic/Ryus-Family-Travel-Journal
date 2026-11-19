@@ -984,7 +984,7 @@
     });
     const hint = document.getElementById('representativeCropHint');
     if (hint) hint.textContent = crop.mode === 'crop'
-      ? '사진을 손가락으로 직접 끌어 위치를 정하세요. 확대 배율을 올리면 좌우·상하로 더 넓게 움직일 수 있습니다.'
+      ? '한 손가락으로 사진을 옮기고, 두 손가락을 벌리거나 모아 확대·축소하세요. 아래 막대로도 미세 조정할 수 있습니다.'
       : '일부 확대를 누른 뒤 사진을 손가락으로 움직여 원하는 부분을 골라 주세요.';
   }
 
@@ -1174,7 +1174,7 @@
           <small>0 위쪽 · 100 아래쪽</small>
         </label>
         <p id="representativeCropHint" class="photo-selected-hint">${crop.mode === 'crop' ? '사진을 드래그하거나 위치 조절 막대를 움직여 원하는 부분을 선택하세요.' : '사진 전체가 메인 화면에 보입니다.'}</p>
-        <div class="photo-selected-actions"><button type="button" class="secondary photo-selected-reset" data-reset-representative-crop>구도 초기화</button><button type="button" class="photo-selected-save" data-save-representative-crop>이 사진의 구도 저장</button></div>
+        <div class="photo-selected-actions" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="secondary photo-selected-reset" data-reset-representative-crop style="min-height:36px;padding:8px 13px;border:1px solid #eadbd0;border-radius:10px;background:#fff9f1;color:#946e5b;font-size:10px;font-weight:900">구도 초기화</button><button type="button" class="photo-selected-save" data-save-representative-crop style="flex:1">이 사진의 구도 저장</button></div>
       </div>
     `;
     const selectedImage = document.getElementById('representativeCropImage');
