@@ -1276,7 +1276,8 @@
             .catch(error => console.warn('[대표사진] 삭제된 사진 연결을 정리하지 못했습니다.', error.message));
         }
       }
-      const displayPhoto = validIds.length
+      const chosenPhotoExists = validIds.length > 0;
+      const displayPhoto = chosenPhotoExists
         ? tripPhotos.find(photo => String(photo.id) === String(validIds[0]))
         : tripPhotos[0];
       let img = cover.querySelector('img');
