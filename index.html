@@ -163,7 +163,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 }
 
 </style>
-  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=photo-swipe-crop-20261119-1" />
+  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=edit-layer-cleanup-20261119-1" />
   <link rel="stylesheet" href="./ryus-family-travel-home-stack.css?v=20261118-stack1" />
 </head>
 <body>
@@ -406,8 +406,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
 </button><button class="secondary" id="closeLightbox">닫기</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
-<script src="./ryus-family-travel-supabase-auth.js?v=photo-delete-20261118-1"></script>
-<script src="./ryus-family-travel-r2.js?v=photo-delete-20261118-1"></script>
+<script src="./ryus-family-travel-supabase-auth.js?v=edit-layer-cleanup-20261119-1"></script>
+<script src="./ryus-family-travel-r2.js?v=edit-layer-cleanup-20261119-1"></script>
   <script src="./ryus-family-travel-detail-cover.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
@@ -1462,19 +1462,28 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     if (e.target === $('tripDetailModal')) closeTripDetail();
   });
 
-  $('editTripFromDetail').addEventListener('click', () => {
+  function handleEditTripFromDetail() {
     if (!window.isFamilyPhotoParent?.()) {
       toast('부모 계정에서만 수정할 수 있습니다.');
       return;
     }
 
-    const trip = getTrip(currentTripDetailId);
-    if (!trip) return;
+    const trip = trips.find(item => String(item.id) === String(currentTripDetailId || ''));
+    if (!trip) {
+      toast('여행 기록을 다시 불러오고 있습니다. 상세 화면을 다시 열어 주세요.');
+      console.warn('[여행 기록 수정] 상세 화면의 여행 ID를 찾지 못했습니다:', currentTripDetailId);
+      return;
+    }
 
-    // Keep the trip detail open underneath the editor. Back closes only the editor,
-    // then a second Back closes the detail screen.
-    openModal(trip);
-  });
+    try {
+      // Keep the detail screen underneath. The CSS places the editor above it.
+      openModal(trip);
+    } catch (error) {
+      console.error('[여행 기록 수정 창]', error);
+      toast('수정 화면을 열지 못했습니다: ' + (error.message || '다시 시도해 주세요.'));
+    }
+  }
+  $('editTripFromDetail').addEventListener('click', handleEditTripFromDetail);
  $('closeLightbox').addEventListener('click', closeLightbox);
  $('lightbox').addEventListener('click', e => { if (e.target === $('lightbox')) closeLightbox(); });
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
