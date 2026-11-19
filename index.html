@@ -205,6 +205,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
           <button type="button" class="home-feature-arrow prev" id="homeFeaturePrev" aria-label="이전 여행">‹</button>
           <button type="button" class="home-feature-arrow next" id="homeFeatureNext" aria-label="다음 여행">›</button>
           <div class="home-feature-dots" id="homeFeatureDots"></div>
+          <div class="home-feature-photo-dots" id="homeFeaturePhotoDots" aria-label="여행 대표사진" hidden></div>
         </section>
             <div class="stats home-stats" aria-hidden="true" style="display:none">
               <div class="stat"><div class="stat-icon">🧳</div><div><strong id="statTrips">0</strong><span>여행 기록</span></div></div>
@@ -379,6 +380,14 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
         <label for="homeFeaturedCropZoom">확대 배율 <b id="homeFeaturedCropZoomValue">1.00배</b></label>
         <input type="range" id="homeFeaturedCropZoom" min="1" max="2.6" step="0.05" value="1" />
       </div>
+      <div class="home-feature-crop-position">
+        <label for="homeFeaturedCropX">가로 위치 <b id="homeFeaturedCropXValue">50%</b></label>
+        <input type="range" id="homeFeaturedCropX" min="0" max="100" step="1" value="50" />
+        <small>0 왼쪽 · 100 오른쪽</small>
+        <label for="homeFeaturedCropY">세로 위치 <b id="homeFeaturedCropYValue">50%</b></label>
+        <input type="range" id="homeFeaturedCropY" min="0" max="100" step="1" value="50" />
+        <small>0 위쪽 · 100 아래쪽</small>
+      </div>
       <p class="home-feature-crop-hint" id="homeFeaturedCropHint">현재처럼 사진 전체가 보이도록 표시합니다.</p>
     </div>
     <div class="modal-actions">
@@ -431,6 +440,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let currentTripDetailId = null;
   let homeFeatureIndex = 0;
   let homeFeatureTripId = null;
+  let homeFeaturePhotoIndex = 0;
+  let homeFeatureLastTripId = null;
   let homeFeaturedSelection = [];
   let homeFeaturedSelectionLoaded = false;
   let homeFeaturedCrops = {};
@@ -548,6 +559,16 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   function getTrip(id){return trips.find(t=>t.id===id);}
   function getPhoto(id){return photos.find(p=>p.id===id);}
   function getTripPhotos(tripId){return photos.filter(p=>p.tripId===tripId);}
+  function getTripRepresentativePhotoIds(trip) {
+    const raw = Array.isArray(trip?.coverPhotoIds) ? trip.coverPhotoIds : (trip?.coverPhotoId ? [trip.coverPhotoId] : []);
+    return [...new Set(raw.map(value => String(value || '')).filter(Boolean))].slice(0, 3);
+  }
+  function getTripRepresentativePhotos(trip) {
+    const list = getTripPhotos(trip?.id);
+    const ids = getTripRepresentativePhotoIds(trip);
+    const selected = ids.map(id => list.find(photo => String(photo.id) === id)).filter(Boolean);
+    return selected.length ? selected : list.slice(0, 1);
+  }
   function normalizePlace(t){return (t.place||'').trim().toLocaleLowerCase().replace(/\s+/g,' ');}
   function distanceMeters(aLat,aLng,bLat,bLng) {
     const rad=v=>v*Math.PI/180, dLat=rad(bLat-aLat), dLng=rad(bLng-aLng);
@@ -681,12 +702,16 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const meta = $('homeFeatureMeta');
     const place = $('homeFeaturePlace');
     const dots = $('homeFeatureDots');
+    const photoDots = $('homeFeaturePhotoDots');
     const prev = $('homeFeaturePrev');
     const next = $('homeFeatureNext');
     if (!image || !title || !meta || !place || !dots) return;
     const candidates = getHomeFeaturedTrips();
     if (!candidates.length) {
       homeFeatureTripId = null;
+      homeFeatureLastTripId = null;
+      homeFeaturePhotoIndex = 0;
+      image.classList.remove('home-custom-crop');
       image.removeAttribute('src');
       image.style.opacity = '0';
       image.parentElement?.style.removeProperty('--feature-photo-fill');
@@ -694,15 +719,22 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       meta.textContent = '여행을 기록하면 이곳에 대표사진이 펼쳐집니다.';
       place.textContent = '🌼 첫 가족 여행을 기록해 보세요!';
       dots.innerHTML = '';
+      if (photoDots) { photoDots.innerHTML = ''; photoDots.hidden = true; }
       if (prev) prev.hidden = true;
       if (next) next.hidden = true;
       return;
     }
     homeFeatureIndex = ((homeFeatureIndex % candidates.length) + candidates.length) % candidates.length;
     const trip = candidates[homeFeatureIndex];
+    const tripKey = String(trip.id);
+    if (homeFeatureLastTripId !== tripKey) {
+      homeFeaturePhotoIndex = 0;
+      homeFeatureLastTripId = tripKey;
+    }
     homeFeatureTripId = trip.id;
-    const tripPhotos = getTripPhotos(trip.id);
-    const photo = tripPhotos.find(p => String(p.id) === String(trip.coverPhotoId)) || tripPhotos[0];
+    const representativePhotos = getTripRepresentativePhotos(trip);
+    homeFeaturePhotoIndex = representativePhotos.length ? homeFeaturePhotoIndex % representativePhotos.length : 0;
+    const photo = representativePhotos[homeFeaturePhotoIndex] || null;
     applyHomeFeatureCrop(photo);
     if (photo) {
       image.dataset.photoId = String(photo.id);
@@ -727,11 +759,26 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     meta.textContent = `${dateLabel(trip.date)} · ${trip.type === 'overseas' ? (trip.country || '해외') : (trip.region || trip.place || '국내 여행')}`;
     place.textContent = `📍 ${trip.place || '여행지'} · 가족의 소중한 추억`;
     dots.innerHTML = candidates.length > 1
-      ? candidates.map((_,index) => `<button type="button" class="${index===homeFeatureIndex?'active':''}" data-home-feature-dot="${index}" aria-label="여행 사진 ${index+1} 보기"></button>`).join('')
+      ? candidates.map((_,index) => `<button type="button" class="${index===homeFeatureIndex?'active':''}" data-home-feature-dot="${index}" aria-label="여행 ${index+1} 보기"></button>`).join('')
       : '';
+    if (photoDots) {
+      photoDots.innerHTML = representativePhotos.length > 1
+        ? representativePhotos.map((_,index) => `<button type="button" class="${index===homeFeaturePhotoIndex?'active':''}" data-home-feature-photo-dot="${index}" aria-label="이 여행 대표사진 ${index+1} 보기"></button>`).join('')
+        : '';
+      photoDots.hidden = representativePhotos.length <= 1;
+    }
     if (prev) prev.hidden = candidates.length <= 1;
     if (next) next.hidden = candidates.length <= 1;
   }
+  window.advanceHomeFeaturedPhoto = function() {
+    const trip = getHomeFeaturedTrips()[homeFeatureIndex];
+    if (!trip) return false;
+    const photosForTrip = getTripRepresentativePhotos(trip);
+    if (photosForTrip.length <= 1) return false;
+    homeFeaturePhotoIndex = (homeFeaturePhotoIndex + 1) % photosForTrip.length;
+    renderHomeFeatured();
+    return true;
+  };
   window.refreshFamilyHomeFeaturedCropSettings = async function() {
     if (typeof window.loadFamilyHomeFeaturedCrops === 'function') {
       try { homeFeaturedCrops = await window.loadFamilyHomeFeaturedCrops(); }
@@ -770,7 +817,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       const id = String(trip.id);
       const selectedIndex = homeFeaturedSelection.indexOf(id);
       const photosForTrip = getTripPhotos(trip.id);
-      const cover = photosForTrip.find(photo => String(photo.id) === String(trip.coverPhotoId)) || photosForTrip[0];
+      const firstCoverId = getTripRepresentativePhotoIds(trip)[0];
+      const cover = photosForTrip.find(photo => String(photo.id) === String(firstCoverId || trip.coverPhotoId || '')) || photosForTrip[0];
       const thumbnail = cover
         ? `<img data-photo-id="${escapeHTML(cover.id)}" data-maxside="140" alt="" />`
         : '<span class="home-feature-choice-placeholder">🌿</span>';
@@ -805,6 +853,14 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       slider.value = String(crop.zoom);
       slider.disabled = crop.mode !== 'crop';
     }
+    const xSlider = $('homeFeaturedCropX');
+    const ySlider = $('homeFeaturedCropY');
+    const xValue = $('homeFeaturedCropXValue');
+    const yValue = $('homeFeaturedCropYValue');
+    if (xSlider) { xSlider.value = String(crop.x); xSlider.disabled = crop.mode !== 'crop'; }
+    if (ySlider) { ySlider.value = String(crop.y); ySlider.disabled = crop.mode !== 'crop'; }
+    if (xValue) xValue.textContent = Math.round(crop.x) + '%';
+    if (yValue) yValue.textContent = Math.round(crop.y) + '%';
     if (value) value.textContent = crop.zoom.toFixed(2) + '배';
     $('homeFeaturedCropModeFull')?.classList.toggle('active', crop.mode === 'full');
     $('homeFeaturedCropModeCrop')?.classList.toggle('active', crop.mode === 'crop');
@@ -821,7 +877,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const trip = trips.find(item => String(item.id) === String(tripId));
     if (!trip) return;
     const tripPhotos = getTripPhotos(trip.id);
-    const photo = tripPhotos.find(item => String(item.id) === String(trip.coverPhotoId)) || tripPhotos[0];
+    const coverIds = getTripRepresentativePhotoIds(trip);
+    const photo = tripPhotos.find(item => String(item.id) === String(coverIds[0] || trip.coverPhotoId || '')) || tripPhotos[0];
     if (!photo) {
       toast('먼저 여행 기록에 사진을 추가해 주세요.');
       return;
@@ -1526,6 +1583,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('homeFeaturedCropModeFull')?.addEventListener('click',()=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.mode='full';updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropModeCrop')?.addEventListener('click',()=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.mode='crop';updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropZoom')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.zoom=Number(event.target.value)||1;updateHomeFeaturedCropPreview();}});
+  $('homeFeaturedCropX')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.x=Number(event.target.value);updateHomeFeaturedCropPreview();}});
+  $('homeFeaturedCropY')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.y=Number(event.target.value);updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropPreview')?.addEventListener('pointerdown',event=>{
     if(!homeFeaturedCropDraft || homeFeaturedCropDraft.mode!=='crop')return;
     const frame=$('homeFeaturedCropPreview');
@@ -1572,6 +1631,10 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('homeFeatureDots')?.addEventListener('click',event=>{
     const dot=event.target.closest?.('[data-home-feature-dot]');
     if(dot){homeFeatureIndex=Number(dot.dataset.homeFeatureDot)||0;renderHomeFeatured();}
+  });
+  $('homeFeaturePhotoDots')?.addEventListener('click',event=>{
+    const dot=event.target.closest?.('[data-home-feature-photo-dot]');
+    if(dot){homeFeaturePhotoIndex=Number(dot.dataset.homeFeaturePhotoDot)||0;renderHomeFeatured();}
   });
   async function init(){
     try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');trips=Array.isArray(saved.trips)?saved.trips:[];photos=Array.isArray(saved.photos)?saved.photos:[];}catch(e){console.warn(e);trips=[];photos=[];}
