@@ -1791,7 +1791,7 @@ body.auth-child .home-feature-crop-action{display:none!important}
 }
 #representativePhotoChooser .photo-selected-preview.is-crop-mode::after,
 .home-feature-crop-preview.is-crop-mode::after{
-  content:"손가락으로 사진을 끌어 위치 조정";
+  content:"한 손가락 이동 · 두 손가락 확대/축소";
   position:absolute;
   z-index:4;
   top:9px;
