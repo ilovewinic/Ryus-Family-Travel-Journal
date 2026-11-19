@@ -859,6 +859,23 @@
       return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     } catch (_) { return {}; }
   }
+  function getHomeHeroAspectRatio() {
+    const heroRect = document.getElementById('homeFeaturedBanner')?.getBoundingClientRect();
+    if (heroRect?.width > 0 && heroRect?.height > 0) return heroRect.width / heroRect.height;
+    const app = document.querySelector('.app');
+    const appRect = app?.getBoundingClientRect();
+    const appStyle = app ? getComputedStyle(app) : null;
+    const appWidth = appRect?.width || window.innerWidth || 390;
+    const horizontalPadding = appStyle
+      ? (parseFloat(appStyle.paddingLeft) || 0) + (parseFloat(appStyle.paddingRight) || 0)
+      : 20;
+    const contentWidth = Math.max(280, appWidth - horizontalPadding);
+    const mobile = window.innerWidth <= 720;
+    const compact = window.innerWidth <= 850;
+    const heroWidth = compact ? contentWidth : (contentWidth - 15) * (1.65 / (1.65 + 0.78));
+    const heroHeight = mobile ? 230 : (compact ? 270 : 310);
+    return heroWidth / heroHeight;
+  }
   function normalizeRepresentativeCrop(value = {}) {
     const clamp = (number, min, max) => Math.max(min, Math.min(max, number));
     const numeric = (candidate, fallback) => Number.isFinite(Number(candidate)) ? Number(candidate) : fallback;
@@ -1180,11 +1197,8 @@
     const selectedImage = document.getElementById('representativeCropImage');
     const cropPreview = document.getElementById('representativeCropPreview');
     if (cropPreview) {
-      const heroRect = document.getElementById('homeFeaturedBanner')?.getBoundingClientRect();
-      if (heroRect?.width > 0 && heroRect?.height > 0) {
-        cropPreview.style.setProperty('aspect-ratio', String(heroRect.width / heroRect.height), 'important');
-        cropPreview.style.setProperty('max-height', 'none', 'important');
-      }
+      cropPreview.style.setProperty('aspect-ratio', String(getHomeHeroAspectRatio()), 'important');
+      cropPreview.style.setProperty('max-height', 'none', 'important');
       attachRepresentativeCropDrag(cropPreview);
     }
     if (selectedImage && imageUrl) {
