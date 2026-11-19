@@ -163,7 +163,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 }
 
 </style>
-  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=photo-delete-20261118-1" />
+  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=photo-swipe-crop-20261119-1" />
   <link rel="stylesheet" href="./ryus-family-travel-home-stack.css?v=20261118-stack1" />
 </head>
 <body>
@@ -344,13 +344,48 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
       <div class="home-feature-settings-note" id="homeFeaturedSettingsNote">선택한 순서대로 첫 화면 슬라이드에 표시됩니다. 1개만 고르면 고정 사진처럼 표시됩니다.</div>
       <div class="home-feature-selected" id="homeFeaturedSelected"></div>
       <div class="home-feature-choice-list" id="homeFeaturedChoiceList"></div>
-      <div class="home-feature-settings-help">선택한 여행은 가족 공통 설정으로 저장됩니다. 선택하지 않으면 최근 여행 최대 5개가 자동으로 표시됩니다.</div>
+      <div class="home-feature-settings-help">선택한 여행은 가족 공통 설정으로 저장됩니다. 각 여행의 ‘구도 조절’에서 메인 큰 사진만 원하는 부분을 확대해 지정할 수 있고, 겹친 작은 사진은 전체가 보입니다. 선택하지 않으면 최근 여행 최대 5개가 자동으로 표시됩니다.</div>
     </div>
     <div class="modal-actions">
       <button type="button" class="secondary" id="homeFeaturedAuto">최근 여행 자동 표시</button>
       <div class="right-actions">
         <button type="button" class="secondary" id="cancelHomeFeaturedSettings">취소</button>
         <button type="button" class="primary" id="saveHomeFeaturedSettings">선택 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- homepage featured-photo crop editor -->
+<div class="modal-backdrop home-feature-crop-backdrop" id="homeFeaturedCropModal" role="dialog" aria-modal="true" aria-labelledby="homeFeaturedCropTitle">
+  <div class="modal home-feature-crop-modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="homeFeaturedCropTitle">📐 대표사진 구도 조절</h3>
+        <p class="trip-detail-subtitle" id="homeFeaturedCropSubtitle">메인 화면의 큰 사진에 적용됩니다.</p>
+      </div>
+      <button class="close" type="button" id="closeHomeFeaturedCrop" aria-label="닫기">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="home-feature-crop-preview" id="homeFeaturedCropPreview">
+        <img id="homeFeaturedCropImage" alt="대표사진 구도 미리보기" draggable="false" />
+        <span class="home-crop-preview-label">메인 화면 미리보기</span>
+      </div>
+      <div class="home-feature-crop-mode">
+        <button type="button" id="homeFeaturedCropModeFull" class="active">전체 사진 보기</button>
+        <button type="button" id="homeFeaturedCropModeCrop">일부 확대해서 보기</button>
+      </div>
+      <div class="home-feature-crop-zoom">
+        <label for="homeFeaturedCropZoom">확대 배율 <b id="homeFeaturedCropZoomValue">1.00배</b></label>
+        <input type="range" id="homeFeaturedCropZoom" min="1" max="2.6" step="0.05" value="1" />
+      </div>
+      <p class="home-feature-crop-hint" id="homeFeaturedCropHint">현재처럼 사진 전체가 보이도록 표시합니다.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="secondary" id="resetHomeFeaturedCrop">기본 구도로 초기화</button>
+      <div class="right-actions">
+        <button type="button" class="secondary" id="cancelHomeFeaturedCrop">취소</button>
+        <button type="button" class="primary" id="saveHomeFeaturedCrop">구도 저장</button>
       </div>
     </div>
   </div>
@@ -398,6 +433,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let homeFeatureTripId = null;
   let homeFeaturedSelection = [];
   let homeFeaturedSelectionLoaded = false;
+  let homeFeaturedCrops = {};
+  let homeFeaturedCropDraft = null;
+  let homeFeaturedCropDrag = null;
   let mapMarkers = [];
   const OVERLAY_HISTORY_KEY = '__ryusFamilyJournalOverlay';
   let lightboxOpenToken = 0;
@@ -612,6 +650,31 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     }
     return [...trips].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
   }
+  function normalizeHomeFeatureCrop(value = {}) {
+    const clamp = (number, min, max) => Math.max(min, Math.min(max, number));
+    return {
+      mode: value.mode === 'crop' ? 'crop' : 'full',
+      x: clamp(Number.isFinite(Number(value.x)) ? Number(value.x) : 50, 0, 100),
+      y: clamp(Number.isFinite(Number(value.y)) ? Number(value.y) : 50, 0, 100),
+      zoom: clamp(Number.isFinite(Number(value.zoom)) ? Number(value.zoom) : 1, 1, 2.6)
+    };
+  }
+  function getHomeFeatureCrop(photoId) {
+    return normalizeHomeFeatureCrop(homeFeaturedCrops[String(photoId)] || {});
+  }
+  function applyHomeFeatureCrop(photo) {
+    const image = $('homeFeatureImage');
+    if (!image) return;
+    image.classList.remove('home-custom-crop');
+    ['--home-crop-x','--home-crop-y','--home-crop-zoom'].forEach(key => image.style.removeProperty(key));
+    if (!photo) return;
+    const crop = getHomeFeatureCrop(photo.id);
+    if (crop.mode !== 'crop') return;
+    image.classList.add('home-custom-crop');
+    image.style.setProperty('--home-crop-x', crop.x + '%');
+    image.style.setProperty('--home-crop-y', crop.y + '%');
+    image.style.setProperty('--home-crop-zoom', String(crop.zoom));
+  }
   function renderHomeFeatured() {
     const image = $('homeFeatureImage');
     const title = $('homeFeatureTitle');
@@ -640,6 +703,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     homeFeatureTripId = trip.id;
     const tripPhotos = getTripPhotos(trip.id);
     const photo = tripPhotos.find(p => String(p.id) === String(trip.coverPhotoId)) || tripPhotos[0];
+    applyHomeFeatureCrop(photo);
     if (photo) {
       image.dataset.photoId = String(photo.id);
       image.dataset.maxside = '1600';
@@ -703,14 +767,136 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       const thumbnail = cover
         ? `<img data-photo-id="${escapeHTML(cover.id)}" data-maxside="140" alt="" />`
         : '<span class="home-feature-choice-placeholder">🌿</span>';
-      return `<button type="button" class="home-feature-choice ${selectedIndex>=0?'selected':''}" data-home-feature-choice="${escapeHTML(id)}">
-        <span class="home-feature-choice-thumb">${thumbnail}</span>
-        <span class="home-feature-choice-copy"><b>${escapeHTML(trip.title || '우리 가족 여행')}</b><small>${escapeHTML(dateLabel(trip.date))} · ${escapeHTML(trip.place || trip.region || '장소 미입력')}</small></span>
-        <span class="home-feature-choice-state">${selectedIndex>=0 ? (selectedIndex+1)+'번째' : '선택하기'}</span>
-      </button>`;
+      return `<div class="home-feature-choice-row">
+        <button type="button" class="home-feature-choice ${selectedIndex>=0?'selected':''}" data-home-feature-choice="${escapeHTML(id)}">
+          <span class="home-feature-choice-thumb">${thumbnail}</span>
+          <span class="home-feature-choice-copy"><b>${escapeHTML(trip.title || '우리 가족 여행')}</b><small>${escapeHTML(dateLabel(trip.date))} · ${escapeHTML(trip.place || trip.region || '장소 미입력')}</small></span>
+          <span class="home-feature-choice-state">${selectedIndex>=0 ? (selectedIndex+1)+'번째' : '선택하기'}</span>
+        </button>
+        <button type="button" class="home-feature-crop-action" data-home-feature-crop="${escapeHTML(id)}" ${cover?'':'disabled'}>📐 구도 조절</button>
+      </div>`;
     }).join('');
     hydrateImages(list);
   }
+  function updateHomeFeaturedCropPreview() {
+    const draft = homeFeaturedCropDraft;
+    const frame = $('homeFeaturedCropPreview');
+    const image = $('homeFeaturedCropImage');
+    const slider = $('homeFeaturedCropZoom');
+    const value = $('homeFeaturedCropZoomValue');
+    if (!draft || !frame || !image) return;
+    const crop = normalizeHomeFeatureCrop(draft);
+    draft.x = crop.x; draft.y = crop.y; draft.zoom = crop.zoom; draft.mode = crop.mode;
+    frame.classList.toggle('is-crop-mode', crop.mode === 'crop');
+    frame.style.setProperty('--crop-x', crop.x + '%');
+    frame.style.setProperty('--crop-y', crop.y + '%');
+    frame.style.setProperty('--crop-zoom', String(crop.zoom));
+    image.style.objectFit = crop.mode === 'crop' ? 'cover' : 'contain';
+    image.style.objectPosition = crop.x + '% ' + crop.y + '%';
+    image.style.transform = crop.mode === 'crop' ? 'scale(' + crop.zoom + ')' : 'none';
+    if (slider) {
+      slider.value = String(crop.zoom);
+      slider.disabled = crop.mode !== 'crop';
+    }
+    if (value) value.textContent = crop.zoom.toFixed(2) + '배';
+    $('homeFeaturedCropModeFull')?.classList.toggle('active', crop.mode === 'full');
+    $('homeFeaturedCropModeCrop')?.classList.toggle('active', crop.mode === 'crop');
+    $('homeFeaturedCropHint').textContent = crop.mode === 'crop'
+      ? '사진을 손가락이나 마우스로 끌어 원하는 부분을 중앙에 놓으세요.'
+      : '현재처럼 사진 전체가 보이도록 표시합니다. 확대 자르기를 선택하면 원하는 부분을 조절할 수 있어요.';
+  }
+
+  async function openHomeFeaturedCrop(tripId) {
+    if (!window.isFamilyPhotoParent?.()) {
+      toast('부모 계정에서만 대표사진 구도를 바꿀 수 있습니다.');
+      return;
+    }
+    const trip = trips.find(item => String(item.id) === String(tripId));
+    if (!trip) return;
+    const tripPhotos = getTripPhotos(trip.id);
+    const photo = tripPhotos.find(item => String(item.id) === String(trip.coverPhotoId)) || tripPhotos[0];
+    if (!photo) {
+      toast('먼저 여행 기록에 사진을 추가해 주세요.');
+      return;
+    }
+    if (window.loadFamilyHomeFeaturedCrops) {
+      try { homeFeaturedCrops = await window.loadFamilyHomeFeaturedCrops(); }
+      catch (error) { console.warn('[대표사진 구도 불러오기]', error); }
+    }
+    const saved = getHomeFeatureCrop(photo.id);
+    homeFeaturedCropDraft = {
+      tripId: String(trip.id),
+      photoId: String(photo.id),
+      mode: saved.mode,
+      x: saved.x,
+      y: saved.y,
+      zoom: saved.zoom
+    };
+    $('homeFeaturedCropTitle').textContent = '📐 ' + (trip.title || '우리 가족 여행') + ' · 대표사진 구도';
+    $('homeFeaturedCropSubtitle').textContent = '메인 화면의 큰 사진에만 적용됩니다. 주변의 작은 겹침 사진은 전체 사진 그대로 보여요.';
+    $('homeFeaturedCropImage').src = '';
+    $('homeFeaturedCropModal').classList.add('open');
+    updateHomeFeaturedCropPreview();
+    try {
+      const url = await resizedURL(String(photo.id), 1800);
+      if (!homeFeaturedCropDraft || homeFeaturedCropDraft.photoId !== String(photo.id)) return;
+      if (url) $('homeFeaturedCropImage').src = url;
+      else toast('사진을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+    } catch (error) {
+      console.warn('[대표사진 구도 미리보기]', error);
+      toast('미리보기 사진을 불러오지 못했습니다.');
+    }
+  }
+
+  function closeHomeFeaturedCrop() {
+    $('homeFeaturedCropModal')?.classList.remove('open');
+    homeFeaturedCropDraft = null;
+    homeFeaturedCropDrag = null;
+  }
+
+  async function saveHomeFeaturedCrop() {
+    if (!homeFeaturedCropDraft) return;
+    const saveButton = $('saveHomeFeaturedCrop');
+    if (saveButton) saveButton.disabled = true;
+    try {
+      const crop = normalizeHomeFeatureCrop(homeFeaturedCropDraft);
+      homeFeaturedCrops = {
+        ...homeFeaturedCrops,
+        [String(homeFeaturedCropDraft.photoId)]: crop
+      };
+      localStorage.setItem('ryusFamilyHomeFeatureCrops_v1', JSON.stringify(homeFeaturedCrops));
+      let syncResult = { synced: false };
+      if (window.saveFamilyHomeFeaturedCrops) {
+        syncResult = await window.saveFamilyHomeFeaturedCrops(homeFeaturedCrops);
+      }
+      closeHomeFeaturedCrop();
+      renderHomeFeatured();
+      renderHomeFeaturedChoices();
+      if (syncResult?.synced === false) {
+        toast('이 기기에는 저장했어요. 가족 기기 동기화는 SQL 설정 후 가능합니다.');
+      } else {
+        toast('대표사진 구도를 저장했어요. 🌷');
+      }
+    } catch (error) {
+      console.error('[대표사진 구도 저장]', error);
+      closeHomeFeaturedCrop();
+      renderHomeFeatured();
+      renderHomeFeaturedChoices();
+      toast('이 기기에는 저장했지만 가족 동기화는 실패했습니다. ' + (error.message || ''));
+    } finally {
+      if (saveButton) saveButton.disabled = false;
+    }
+  }
+
+  function resetHomeFeaturedCrop() {
+    if (!homeFeaturedCropDraft) return;
+    homeFeaturedCropDraft.mode = 'full';
+    homeFeaturedCropDraft.x = 50;
+    homeFeaturedCropDraft.y = 50;
+    homeFeaturedCropDraft.zoom = 1;
+    updateHomeFeaturedCropPreview();
+  }
+
   async function openHomeFeaturedSettings() {
     const modal = $('homeFeaturedSettingsModal');
     if (!modal) return;
@@ -722,6 +908,10 @@ style="background:#fff0ec;color:#bd655b;display:none;">
         console.warn('[메인 대표 여행 불러오기]', error);
         toast(error.message || '대표 여행 설정을 불러오지 못했습니다.');
       }
+    }
+    if (window.loadFamilyHomeFeaturedCrops) {
+      try { homeFeaturedCrops = await window.loadFamilyHomeFeaturedCrops(); }
+      catch (error) { console.warn('[대표사진 구도 불러오기]', error); }
     }
     renderHomeFeaturedChoices();
     modal.classList.add('open');
@@ -1312,7 +1502,48 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('homeFeaturedSettingsModal')?.addEventListener('click',event=>{if(event.target===$('homeFeaturedSettingsModal'))closeHomeFeaturedSettings();});
   $('homeFeaturedAuto')?.addEventListener('click',()=>{homeFeaturedSelection=[];renderHomeFeaturedChoices();});
   $('saveHomeFeaturedSettings')?.addEventListener('click',saveHomeFeaturedSettings);
+  $('closeHomeFeaturedCrop')?.addEventListener('click',closeHomeFeaturedCrop);
+  $('cancelHomeFeaturedCrop')?.addEventListener('click',closeHomeFeaturedCrop);
+  $('homeFeaturedCropModal')?.addEventListener('click',event=>{if(event.target===$('homeFeaturedCropModal'))closeHomeFeaturedCrop();});
+  $('saveHomeFeaturedCrop')?.addEventListener('click',saveHomeFeaturedCrop);
+  $('resetHomeFeaturedCrop')?.addEventListener('click',resetHomeFeaturedCrop);
+  $('homeFeaturedCropModeFull')?.addEventListener('click',()=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.mode='full';updateHomeFeaturedCropPreview();}});
+  $('homeFeaturedCropModeCrop')?.addEventListener('click',()=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.mode='crop';updateHomeFeaturedCropPreview();}});
+  $('homeFeaturedCropZoom')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.zoom=Number(event.target.value)||1;updateHomeFeaturedCropPreview();}});
+  $('homeFeaturedCropPreview')?.addEventListener('pointerdown',event=>{
+    if(!homeFeaturedCropDraft || homeFeaturedCropDraft.mode!=='crop')return;
+    const frame=$('homeFeaturedCropPreview');
+    homeFeaturedCropDrag={pointerId:event.pointerId,x:event.clientX,y:event.clientY};
+    try{frame.setPointerCapture(event.pointerId);}catch(_){}
+    event.preventDefault();
+  });
+  $('homeFeaturedCropPreview')?.addEventListener('pointermove',event=>{
+    if(!homeFeaturedCropDrag || !homeFeaturedCropDraft || event.pointerId!==homeFeaturedCropDrag.pointerId)return;
+    const frame=$('homeFeaturedCropPreview');
+    const rect=frame.getBoundingClientRect();
+    const dx=event.clientX-homeFeaturedCropDrag.x;
+    const dy=event.clientY-homeFeaturedCropDrag.y;
+    homeFeaturedCropDraft.x=Math.max(0,Math.min(100,homeFeaturedCropDraft.x-dx/Math.max(1,rect.width)*100));
+    homeFeaturedCropDraft.y=Math.max(0,Math.min(100,homeFeaturedCropDraft.y-dy/Math.max(1,rect.height)*100));
+    homeFeaturedCropDrag.x=event.clientX;
+    homeFeaturedCropDrag.y=event.clientY;
+    updateHomeFeaturedCropPreview();
+  });
+  const finishHomeCropDrag=event=>{if(homeFeaturedCropDrag && (!event || event.pointerId===homeFeaturedCropDrag.pointerId))homeFeaturedCropDrag=null;};
+  $('homeFeaturedCropPreview')?.addEventListener('pointerup',finishHomeCropDrag);
+  $('homeFeaturedCropPreview')?.addEventListener('pointercancel',finishHomeCropDrag);
+
   $('homeFeaturedChoiceList')?.addEventListener('click',event=>{
+    const cropButton = event.target.closest?.('[data-home-feature-crop]');
+    if (cropButton) {
+      event.preventDefault();
+      event.stopPropagation();
+      openHomeFeaturedCrop(cropButton.dataset.homeFeatureCrop).catch(error => {
+        console.error('[대표사진 구도 편집]', error);
+        toast(error.message || '구도 편집을 열지 못했습니다.');
+      });
+      return;
+    }
     const choice=event.target.closest?.('[data-home-feature-choice]');
     if(choice) changeHomeFeaturedSelection(choice.dataset.homeFeatureChoice);
   });
@@ -1334,6 +1565,10 @@ style="background:#fff0ec;color:#bd655b;display:none;">
         homeFeaturedSelection = await window.loadFamilyHomeFeaturedIds();
         homeFeaturedSelectionLoaded = true;
       } catch (error) { console.warn('[메인 대표 여행]', error); }
+    }
+    if (window.loadFamilyHomeFeaturedCrops) {
+      try { homeFeaturedCrops = await window.loadFamilyHomeFeaturedCrops(); }
+      catch (error) { console.warn('[대표사진 구도]', error); }
     }
     initMap();
     renderAll();
