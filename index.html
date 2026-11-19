@@ -163,7 +163,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 }
 
 </style>
-  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=three-covers-20261119-2" />
+  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=direct-crop-drag-20261119-1" />
   <link rel="stylesheet" href="./ryus-family-travel-home-stack.css?v=20261118-stack1" />
 </head>
 <body>
@@ -415,7 +415,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
 </button><button class="secondary" id="closeLightbox">닫기</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
-<script src="./ryus-family-travel-supabase-auth.js?v=three-covers-20261119-2"></script>
+<script src="./ryus-family-travel-supabase-auth.js?v=direct-crop-drag-20261119-1"></script>
 <script src="./ryus-family-travel-r2.js?v=cleanup-correct-name-20261119-2"></script>
   <script src="./ryus-family-travel-detail-cover.js?v=three-covers-20261119-1"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -687,7 +687,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const image = $('homeFeatureImage');
     if (!image) return;
     image.classList.remove('home-custom-crop');
-    ['--home-crop-x','--home-crop-y','--home-crop-zoom'].forEach(key => image.style.removeProperty(key));
+    ['--home-crop-x','--home-crop-y','--home-crop-zoom','--home-crop-tx','--home-crop-ty'].forEach(key => image.style.removeProperty(key));
     if (!photo) return;
     const crop = getHomeFeatureCrop(photo.id);
     if (crop.mode !== 'crop') return;
@@ -695,6 +695,8 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     image.style.setProperty('--home-crop-x', crop.x + '%');
     image.style.setProperty('--home-crop-y', crop.y + '%');
     image.style.setProperty('--home-crop-zoom', String(crop.zoom));
+    image.style.setProperty('--home-crop-tx', ((50 - crop.x) * (crop.zoom - 1)) + '%');
+    image.style.setProperty('--home-crop-ty', ((50 - crop.y) * (crop.zoom - 1)) + '%');
   }
   function renderHomeFeatured() {
     const image = $('homeFeatureImage');
@@ -847,8 +849,13 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     frame.style.setProperty('--crop-y', crop.y + '%');
     frame.style.setProperty('--crop-zoom', String(crop.zoom));
     image.style.objectFit = crop.mode === 'crop' ? 'cover' : 'contain';
-    image.style.objectPosition = crop.x + '% ' + crop.y + '%';
-    image.style.transform = crop.mode === 'crop' ? 'scale(' + crop.zoom + ')' : 'none';
+    image.style.objectPosition = '50% 50%';
+    image.style.transformOrigin = 'center center';
+    const translateX = (50 - crop.x) * (crop.zoom - 1);
+    const translateY = (50 - crop.y) * (crop.zoom - 1);
+    image.style.transform = crop.mode === 'crop'
+      ? 'translate3d(' + translateX + '%, ' + translateY + '%, 0) scale(' + crop.zoom + ')'
+      : 'none';
     if (slider) {
       slider.value = String(crop.zoom);
       slider.disabled = crop.mode !== 'crop';
@@ -1581,7 +1588,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('saveHomeFeaturedCrop')?.addEventListener('click',saveHomeFeaturedCrop);
   $('resetHomeFeaturedCrop')?.addEventListener('click',resetHomeFeaturedCrop);
   $('homeFeaturedCropModeFull')?.addEventListener('click',()=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.mode='full';updateHomeFeaturedCropPreview();}});
-  $('homeFeaturedCropModeCrop')?.addEventListener('click',()=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.mode='crop';updateHomeFeaturedCropPreview();}});
+  $('homeFeaturedCropModeCrop')?.addEventListener('click',()=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.mode='crop';if(Number(homeFeaturedCropDraft.zoom)<=1.01)homeFeaturedCropDraft.zoom=1.35;updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropZoom')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.zoom=Number(event.target.value)||1;updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropX')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.x=Number(event.target.value);updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropY')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.y=Number(event.target.value);updateHomeFeaturedCropPreview();}});
@@ -1598,11 +1605,15 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const rect=frame.getBoundingClientRect();
     const dx=event.clientX-homeFeaturedCropDrag.x;
     const dy=event.clientY-homeFeaturedCropDrag.y;
-    homeFeaturedCropDraft.x=Math.max(0,Math.min(100,homeFeaturedCropDraft.x-dx/Math.max(1,rect.width)*100));
-    homeFeaturedCropDraft.y=Math.max(0,Math.min(100,homeFeaturedCropDraft.y-dy/Math.max(1,rect.height)*100));
+    const zoom=Math.max(1.01,Number(homeFeaturedCropDraft.zoom)||1);
+    const maxOffsetX=Math.max(1,rect.width*(zoom-1)/2);
+    const maxOffsetY=Math.max(1,rect.height*(zoom-1)/2);
+    homeFeaturedCropDraft.x=Math.max(0,Math.min(100,homeFeaturedCropDraft.x-dx/maxOffsetX*50));
+    homeFeaturedCropDraft.y=Math.max(0,Math.min(100,homeFeaturedCropDraft.y-dy/maxOffsetY*50));
     homeFeaturedCropDrag.x=event.clientX;
     homeFeaturedCropDrag.y=event.clientY;
     updateHomeFeaturedCropPreview();
+    event.preventDefault();
   });
   const finishHomeCropDrag=event=>{if(homeFeaturedCropDrag && (!event || event.pointerId===homeFeaturedCropDrag.pointerId))homeFeaturedCropDrag=null;};
   $('homeFeaturedCropPreview')?.addEventListener('pointerup',finishHomeCropDrag);
