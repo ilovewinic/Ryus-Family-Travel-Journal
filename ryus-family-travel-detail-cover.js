@@ -333,7 +333,11 @@
     if (!frame || !note) return;
 
     const state = readState();
-    const trip = state.trips.find(item => String(item.id) === String(activeTripId));
+    // openTripDetail() publishes the authoritative ID even when the opening
+    // surface is not a normal trip card (for example the small homepage photo stack).
+    const requestedTripId = String(activeTripId || window.__familyTravelLastOpenedTripId || '');
+    const trip = state.trips.find(item => String(item.id) === requestedTripId);
+    if (trip) activeTripId = String(trip.id);
     if (!trip) {
       releaseObjectUrl();
       note.textContent = '';
