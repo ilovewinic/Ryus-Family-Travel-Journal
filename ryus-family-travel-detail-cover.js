@@ -342,7 +342,8 @@
     }
 
     const tripPhotos = state.photos.filter(photo => String(photo.tripId) === String(trip.id));
-    const selectedPhoto = tripPhotos.find(photo => String(photo.id) === String(trip.coverPhotoId));
+    const selectedIds = Array.isArray(trip.coverPhotoIds) && trip.coverPhotoIds.length ? trip.coverPhotoIds.map(String) : (trip.coverPhotoId ? [String(trip.coverPhotoId)] : []);
+    const selectedPhoto = tripPhotos.find(photo => selectedIds.includes(String(photo.id)));
     const fallbackPhoto = tripPhotos[0] || null;
     const photo = selectedPhoto || fallbackPhoto;
 
