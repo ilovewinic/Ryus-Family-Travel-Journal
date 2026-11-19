@@ -466,7 +466,8 @@ window.isFamilyPhotoParent = () => familyRole === 'parent';
       try {
         const cleanup = await window.deleteFamilyPhotosByFileNames([
           '20261002_144615.jpg',
-          'imshr_2026-11-13y11-54-51-898z.png'
+          'imshr_2026-11-13y11-54-51-898z.png',
+          'image_2026-11-13T11-54-51-898Z.PNG'
         ]);
         if (cleanup.deleted > 0) {
           showMessage('요청하신 사진 파일 ' + cleanup.deleted + '개를 클라우드와 가족 앨범에서 정리했습니다.');
