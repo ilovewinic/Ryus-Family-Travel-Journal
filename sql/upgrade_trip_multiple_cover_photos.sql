@@ -20,3 +20,11 @@ where cover_photo_id is null
 
 comment on column public.journals.cover_photo_ids is
   '여행별 대표사진 최대 3장의 photo ID 목록. cover_photo_id는 구버전 호환용 첫 번째 ID입니다.';
+
+-- 대표사진별 확대 위치·배율을 가족 기기 간 공유하는 설정 칸도 함께 준비합니다.
+-- 이미 추가한 경우에는 건너뛰므로 반복 실행해도 안전합니다.
+alter table public.family_home_settings
+  add column if not exists featured_photo_crops jsonb not null default '{}'::jsonb;
+
+comment on column public.family_home_settings.featured_photo_crops is
+  '대표 여행 사진별 메인 배너 구도 설정 (photo id -> mode, x, y, zoom)';
