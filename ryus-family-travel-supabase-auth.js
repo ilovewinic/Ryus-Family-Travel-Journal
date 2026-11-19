@@ -862,6 +862,8 @@
   function getHomeHeroAspectRatio() {
     const heroRect = document.getElementById('homeFeaturedBanner')?.getBoundingClientRect();
     if (heroRect?.width > 0 && heroRect?.height > 0) return heroRect.width / heroRect.height;
+    const hero = document.getElementById('homeFeaturedBanner');
+    const heroStyle = hero ? getComputedStyle(hero) : null;
     const app = document.querySelector('.app');
     const appRect = app?.getBoundingClientRect();
     const appStyle = app ? getComputedStyle(app) : null;
@@ -873,7 +875,7 @@
     const mobile = window.innerWidth <= 720;
     const compact = window.innerWidth <= 850;
     const heroWidth = compact ? contentWidth : (contentWidth - 15) * (1.65 / (1.65 + 0.78));
-    const heroHeight = mobile ? 230 : (compact ? 270 : 310);
+    const heroHeight = (parseFloat(heroStyle?.height) || 0) || (mobile ? 230 : (compact ? 270 : 310));
     return heroWidth / heroHeight;
   }
   function normalizeRepresentativeCrop(value = {}) {
