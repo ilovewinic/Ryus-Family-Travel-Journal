@@ -156,17 +156,19 @@
   }
   async function updateTripCoverSelection(clientId, photoIds) {
     const ids = [...new Set((Array.isArray(photoIds) ? photoIds : []).map(String).filter(Boolean))].slice(0, 3);
+    let multipleSynced = true;
     let result = await client.from('journals')
       .update({ cover_photo_id: ids[0] || null, cover_photo_ids: ids })
       .eq('client_id', String(clientId));
     if (result.error && isMissingCoverPhotoIdsColumn(result.error)) {
+      multipleSynced = false;
       result = await client.from('journals')
         .update({ cover_photo_id: ids[0] || null })
         .eq('client_id', String(clientId));
       if (!result.error) console.warn('[대표사진 3장] SQL 확장 전이므로 첫 번째 대표사진만 클라우드에 저장됩니다.');
     }
     if (result.error) throw new Error('대표사진을 가족 계정에 저장하지 못했습니다: ' + result.error.message);
-    return ids;
+    return { ids, multipleSynced };
   }
   async function upsertJournalRowsCompat(rows, options = {}) {
     if (!rows.length) return { error: null };
@@ -1218,7 +1220,10 @@
     trip.coverPhotoIds = nextIds;
     trip.coverPhotoId = nextIds[0] || null;
     saveLocalState(state);
-    await updateTripCoverSelection(tripId, nextIds);
+    const coverSave = await updateTripCoverSelection(tripId, nextIds);
+    if (!coverSave.multipleSynced && nextIds.length > 1) {
+      toast('이 기기에는 ' + nextIds.length + '장을 저장했습니다. 가족 기기에도 3장을 공유하려면 Supabase SQL 설정이 필요합니다.');
+    }
     await window.refreshFamilyTravelHome?.();
     await renderRepresentativeChooser();
     await renderCardCovers();
