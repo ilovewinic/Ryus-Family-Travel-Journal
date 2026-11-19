@@ -520,9 +520,14 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   });
 
   function toast(message) {
-    const el = $('toast'); el.textContent = message; el.classList.add('show');
-    clearTimeout(toast._timer); toast._timer = setTimeout(() => el.classList.remove('show'), 2300);
+    const el = $('toast');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => el.classList.remove('show'), 2300);
   }
+  window.showFamilyToast = toast;
   function uid(prefix='id') { return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
   function escapeHTML(v='') { return String(v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
   function dateLabel(v) { if(!v) return ''; const d = new Date(v+'T00:00:00'); if(isNaN(d)) return v; return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; }
@@ -1244,6 +1249,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     $('tripFiles').value='';
     $('tripLat').value='';
     $('tripLng').value='';
+    $('tripAddressSearch').value='';
+    addressSearchItems = [];
+    renderAddressSearchResults([], '주소나 장소명을 입력하고 검색하세요. 자동완성이 아닌 직접 검색 방식입니다.');
     $('mapPicker').classList.remove('show');
     pickerVisible=false;
     $('modalTitle').textContent=trip?'여행 기록 수정':'새 여행 기록';
@@ -1743,6 +1751,14 @@ style="background:#fff0ec;color:#bd655b;display:none;">
  $('lightbox').addEventListener('click', e => { if (e.target === $('lightbox')) closeLightbox(); });
   $('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('tripModal').addEventListener('click',e=>{if(e.target===$('tripModal'))closeModal();});
   $('togglePicker').addEventListener('click',startPicker);
+  $('searchTripAddress')?.addEventListener('click',searchTripAddress);
+  $('tripAddressSearch')?.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){event.preventDefault();searchTripAddress();}
+  });
+  $('addressSearchResults')?.addEventListener('click',event=>{
+    const resultButton=event.target.closest?.('[data-address-result-index]');
+    if(resultButton)chooseAddressSearchResult(resultButton.dataset.addressResultIndex);
+  });
   $('addTripTop')?.addEventListener('click',()=>openModal());$('addTripList').addEventListener('click',()=>openModal());$('allTripsBtn').addEventListener('click',()=>setView('trips'));$('goPrint').addEventListener('click',()=>setView('prints'));
   document.addEventListener('click',event=>{
     const n=event.target.closest?.('.nav');
