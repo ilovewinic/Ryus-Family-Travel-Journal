@@ -47,7 +47,10 @@
 
   function representativePhoto(trip, photos) {
     const list = photos.filter(photo => String(photo.tripId) === String(trip.id));
-    return list.find(photo => String(photo.id) === String(trip.coverPhotoId || '')) || list[0] || null;
+    const ids = Array.isArray(trip.coverPhotoIds) && trip.coverPhotoIds.length
+      ? trip.coverPhotoIds.map(String).slice(0, 3)
+      : (trip.coverPhotoId ? [String(trip.coverPhotoId)] : []);
+    return list.find(photo => ids.includes(String(photo.id))) || list[0] || null;
   }
 
   function activeIndex() {
@@ -240,6 +243,7 @@
     const lightbox = document.getElementById('lightbox');
     if (settings?.classList.contains('open') || edit?.classList.contains('open') ||
         detail?.classList.contains('open') || lightbox?.classList.contains('open')) return;
+    if (typeof window.advanceHomeFeaturedPhoto === 'function' && window.advanceHomeFeaturedPhoto()) return;
     const dots = document.querySelectorAll('#homeFeatureDots [data-home-feature-dot]');
     if (dots.length > 1) document.getElementById('homeFeatureNext')?.click();
   }
