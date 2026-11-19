@@ -282,7 +282,20 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
           <div class="field"><label for="tripCountry">국가 / 지역</label><input id="tripCountry" placeholder="예: 대한민국 / 일본" value="대한민국" /></div>
           <div class="field"><label for="tripPlace">방문 장소 이름 *</label><input id="tripPlace" required maxlength="80" placeholder="예: 경포해변, 설악산, 오사카성" /></div>
           <div class="field"><label for="tripRegion">시·도 / 도시</label><input id="tripRegion" maxlength="80" placeholder="예: 강원특별자치도 강릉시" /></div>
-          <div class="field full"><label>지도 위치 지정</label><button type="button" class="secondary" id="togglePicker">📍 지도에서 위치 선택하기</button><div class="map-picker" id="mapPicker"><div class="picker-map" id="pickerMap"></div><div class="coord-note" id="coordNote">지도를 눌러 여행 장소의 위치를 찍어주세요. 같은 장소를 다시 기록할 때는 같은 위치를 선택하면 방문 횟수가 합쳐집니다.</div></div></div>
+          <div class="field full">
+            <label for="tripAddressSearch">주소 또는 장소명으로 지도 위치 찾기</label>
+            <div class="address-search-row">
+              <input id="tripAddressSearch" type="search" maxlength="180" placeholder="예: 인천 옹진군청, 강릉 경포로 365" autocomplete="off" />
+              <button type="button" class="secondary" id="searchTripAddress">주소 검색</button>
+            </div>
+            <div class="address-search-results" id="addressSearchResults" aria-live="polite">
+              <span class="address-search-help">주소나 장소명을 입력하고 검색하세요. 자동완성이 아닌 직접 검색 방식입니다.</span>
+            </div>
+            <p class="address-search-attribution">주소 검색: OpenStreetMap · 검색 결과를 선택하면 아래 지도에 핀이 표시됩니다.</p>
+            <label class="map-location-label">지도 위치 지정</label>
+            <button type="button" class="secondary" id="togglePicker">📍 지도에서 위치 선택하기</button>
+            <div class="map-picker" id="mapPicker"><div class="picker-map" id="pickerMap"></div><div class="coord-note" id="coordNote">지도를 눌러 여행 장소의 위치를 찍어주세요. 주소 검색으로 찾은 뒤 지도에서 위치를 미세 조정할 수도 있습니다.</div></div>
+          </div>
           <div class="field full"><label for="tripMemo">여행 메모</label><textarea id="tripMemo" maxlength="2000" placeholder="기억하고 싶은 순간, 함께한 사람, 인상 깊었던 곳 등을 적어보세요."></textarea></div>
           <div class="field full"><label for="tripFiles">여행 사진 추가</label><input id="tripFiles" type="file" accept="image/*" multiple /><div class="file-help">새로 선택한 사진은 아래에서 확인하고, 저장하면 가족 앨범에 등록됩니다. 저장된 사진은 아래 사진 관리 영역에서 대표사진 지정 또는 삭제가 가능합니다.</div><div class="photo-preview-row" id="newPhotoPreview"></div><div id="existingPhotos" class="file-help"></div></div>
         </div>
@@ -432,6 +445,9 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   let variantURLs = new Map();
   let mainMap, pickerMap, pickerMarker;
   let pickerVisible = false;
+  let addressSearchItems = [];
+  let addressSearchCache = new Map();
+  let lastAddressSearchAt = 0;
   let pendingFiles = [];
   let currentLightboxPhoto = null;
   let currentLightboxPhotoIds = [];
