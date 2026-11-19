@@ -1503,3 +1503,8 @@ body.auth-child .home-feature-crop-action{display:none!important}
   .home-feature-crop-modal .modal-actions .right-actions{margin-left:0;width:100%}
   .home-feature-crop-modal .modal-actions .right-actions button{flex:1}
 }
+
+
+/* Keep the trip editor above its still-open detail panel. */
+#tripDetailModal{z-index:2000!important}
+#tripModal{z-index:2100!important}
