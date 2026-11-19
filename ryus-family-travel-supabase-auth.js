@@ -128,6 +128,7 @@
   let chooserObjectURLs = [];
   let representativeCropDraft = null;
   let representativeCropDrag = null;
+  let activeRepresentativePhotoId = null;
   const photoDeletesInProgress = new Set();
 
   function localState() {
@@ -142,6 +143,43 @@
       photos: Array.isArray(state.photos) ? state.photos : []
     }));
   }
+  function getTripCoverPhotoIds(trip) {
+    const raw = Array.isArray(trip?.coverPhotoIds)
+      ? trip.coverPhotoIds
+      : (trip?.coverPhotoId ? [trip.coverPhotoId] : []);
+    return [...new Set(raw.map(value => String(value || '').trim()).filter(Boolean))].slice(0, 3);
+  }
+  function isMissingCoverPhotoIdsColumn(error) {
+    const message = String(error?.message || '') + ' ' + String(error?.details || '');
+    return error?.code === '42703' || error?.code === 'PGRST204' ||
+      /cover_photo_ids|schema cache|column .* does not exist/i.test(message);
+  }
+  async function updateTripCoverSelection(clientId, photoIds) {
+    const ids = [...new Set((Array.isArray(photoIds) ? photoIds : []).map(String).filter(Boolean))].slice(0, 3);
+    let result = await client.from('journals')
+      .update({ cover_photo_id: ids[0] || null, cover_photo_ids: ids })
+      .eq('client_id', String(clientId));
+    if (result.error && isMissingCoverPhotoIdsColumn(result.error)) {
+      result = await client.from('journals')
+        .update({ cover_photo_id: ids[0] || null })
+        .eq('client_id', String(clientId));
+      if (!result.error) console.warn('[대표사진 3장] SQL 확장 전이므로 첫 번째 대표사진만 클라우드에 저장됩니다.');
+    }
+    if (result.error) throw new Error('대표사진을 가족 계정에 저장하지 못했습니다: ' + result.error.message);
+    return ids;
+  }
+  async function upsertJournalRowsCompat(rows, options = {}) {
+    if (!rows.length) return { error: null };
+    let result = await client.from('journals').upsert(rows, options);
+    if (result.error && isMissingCoverPhotoIdsColumn(result.error)) {
+      const legacyRows = rows.map(({ cover_photo_ids, ...row }) => row);
+      result = await client.from('journals').upsert(legacyRows, options);
+      if (!result.error) {
+        console.warn('[대표사진 3장] Supabase에 cover_photo_ids 컬럼이 없습니다. 기존 대표사진 1장만 동기화 중입니다. SQL 확장을 실행해 주세요.');
+      }
+    }
+    return result;
+  }
   function toRow(t) {
     return {
       client_id: String(t.id),
@@ -154,7 +192,8 @@
       region: t.region || null,
       latitude: t.lat === '' || t.lat == null ? null : Number(t.lat),
       longitude: t.lng === '' || t.lng == null ? null : Number(t.lng),
-      cover_photo_id: t.coverPhotoId || null,
+      cover_photo_id: getTripCoverPhotoIds(t)[0] || null,
+      cover_photo_ids: getTripCoverPhotoIds(t),
       end_date: t.endDate || null,
       companions: Array.isArray(t.companions) ? t.companions : [],
       transport: t.transport || null
@@ -172,7 +211,8 @@
       memo: r.content || '',
       lat: r.latitude == null ? '' : r.latitude,
       lng: r.longitude == null ? '' : r.longitude,
-      coverPhotoId: r.cover_photo_id || null,
+      coverPhotoId: (Array.isArray(r.cover_photo_ids) && r.cover_photo_ids.length ? r.cover_photo_ids[0] : r.cover_photo_id) || null,
+      coverPhotoIds: [...new Set((Array.isArray(r.cover_photo_ids) && r.cover_photo_ids.length ? r.cover_photo_ids : (r.cover_photo_id ? [r.cover_photo_id] : [])).map(String))].slice(0, 3),
       endDate: r.end_date || '',
       companions: Array.isArray(r.companions) ? r.companions : [],
       transport: r.transport || ''
@@ -432,12 +472,19 @@
     return new Set((data || []).map(row => String(row.client_id)));
   }
   async function loadCloudTrips(deletedIds = new Set()) {
-    const { data, error } = await client
+    let result = await client
       .from('journals')
-      .select('id,client_id,title,location,visit_date,content,trip_type,country,region,latitude,longitude,cover_photo_id,end_date,companions,transport')
+      .select('id,client_id,title,location,visit_date,content,trip_type,country,region,latitude,longitude,cover_photo_id,cover_photo_ids,end_date,companions,transport')
       .order('visit_date', { ascending: false });
-    if (error) throw new Error('가족 여행 기록을 불러오지 못했습니다: ' + error.message);
-    return (data || []).filter(row => !deletedIds.has(String(row.client_id))).map(fromRow);
+    if (result.error && isMissingCoverPhotoIdsColumn(result.error)) {
+      result = await client
+        .from('journals')
+        .select('id,client_id,title,location,visit_date,content,trip_type,country,region,latitude,longitude,cover_photo_id,end_date,companions,transport')
+        .order('visit_date', { ascending: false });
+      if (!result.error) console.warn('[대표사진 3장] SQL 확장 전이라 클라우드에서는 기존 대표사진 1장만 불러옵니다.');
+    }
+    if (result.error) throw new Error('가족 여행 기록을 불러오지 못했습니다: ' + result.error.message);
+    return (result.data || []).filter(row => !deletedIds.has(String(row.client_id))).map(fromRow);
   }
   async function deleteLocalPhotoBlobs(photoIds) {
     if (!photoIds.length) return;
@@ -465,7 +512,7 @@
     const safeTrips = current.trips.filter(t => !deletedIds.has(String(t.id)));
     if (safeTrips.length) {
       const rows = safeTrips.map(toRow);
-      const { error } = await client.from('journals').upsert(rows, {
+      const { error } = await upsertJournalRowsCompat(rows, {
         onConflict: 'client_id',
         ignoreDuplicates: true
       });
@@ -481,7 +528,7 @@
       const deletedIds = await loadDeletedTripIds();
       const rows = current.trips.filter(t => !deletedIds.has(String(t.id))).map(toRow);
       if (!rows.length) return;
-      const { error } = await client.from('journals').upsert(rows, { onConflict: 'client_id' });
+      const { error } = await upsertJournalRowsCompat(rows, { onConflict: 'client_id' });
       if (error) console.error('여행 기록 클라우드 저장 실패:', error.message);
     } catch (error) {
       console.error('여행 기록 동기화 실패:', error.message);
@@ -612,12 +659,18 @@
   function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
   async function getJournalRow(clientId, attempts = 4) {
     for (let i = 0; i < attempts; i += 1) {
-      const { data, error } = await client.from('journals')
-        .select('id,client_id,title,cover_photo_id')
+      let result = await client.from('journals')
+        .select('id,client_id,title,cover_photo_id,cover_photo_ids')
         .eq('client_id', String(clientId))
         .maybeSingle();
-      if (error) throw new Error('여행 기록 서버 정보를 확인하지 못했습니다: ' + error.message);
-      if (data) return data;
+      if (result.error && isMissingCoverPhotoIdsColumn(result.error)) {
+        result = await client.from('journals')
+          .select('id,client_id,title,cover_photo_id')
+          .eq('client_id', String(clientId))
+          .maybeSingle();
+      }
+      if (result.error) throw new Error('여행 기록 서버 정보를 확인하지 못했습니다: ' + result.error.message);
+      if (result.data) return result.data;
       if (i < attempts - 1) await delay(500);
     }
     return null;
@@ -651,10 +704,10 @@
       chooser.className = 'family-extra-panel';
       chooser.innerHTML = `
         <h4>📷 이 여행의 사진 관리</h4>
-        <p class="family-extra-help">사진 미리보기는 전체가 보이도록 표시합니다. 이 여행의 대표사진은 1장만 지정할 수 있으며, 다른 사진을 선택하면 대표사진이 교체됩니다. 첫 화면에는 별도 설정에서 최대 5개 여행을 선택해 각각의 대표사진을 보여줄 수 있습니다.</p>
+        <p class="family-extra-help">사진 미리보기는 전체가 보이도록 표시합니다. 이 여행에서 대표사진을 최대 3장까지 선택할 수 있으며, 선택한 사진은 첫 화면 큰 사진에서 차례로 보여줍니다. 각 사진별로 확대 위치와 배율을 따로 지정할 수 있습니다.</p>
         <div id="coverChoiceGrid" class="cover-choice-grid photo-manage-grid"></div>
         <section id="representativePhotoTray" class="photo-selected-tray" aria-live="polite"></section>
-        <button type="button" class="secondary" id="clearCoverChoice" style="margin-top:10px">대표사진 지정 해제</button>`;
+        <button type="button" class="secondary" id="clearCoverChoice" style="margin-top:10px">대표사진 모두 해제</button>`;
       chooser.addEventListener('click', event => {
         const modeButton = event.target.closest?.('[data-representative-crop-mode]');
         if (modeButton && representativeCropDraft) {
@@ -662,15 +715,22 @@
           updateRepresentativeCropPreview();
           return;
         }
+        const selectedPhoto = event.target.closest?.('[data-select-representative-crop]');
+        if (selectedPhoto) {
+          activeRepresentativePhotoId = String(selectedPhoto.dataset.selectRepresentativeCrop || '');
+          renderRepresentativeChooser().catch(showEnhancementError);
+          return;
+        }
         if (event.target.closest?.('[data-save-representative-crop]')) {
           saveRepresentativePhotoCrop().catch(showEnhancementError);
         }
       });
       chooser.addEventListener('input', event => {
-        if (event.target.matches?.('#representativeCropZoom') && representativeCropDraft) {
-          representativeCropDraft.zoom = Number(event.target.value) || 1;
-          updateRepresentativeCropPreview();
-        }
+        if (!representativeCropDraft) return;
+        if (event.target.matches?.('#representativeCropZoom')) representativeCropDraft.zoom = Number(event.target.value) || 1;
+        if (event.target.matches?.('#representativeCropX')) representativeCropDraft.x = Number(event.target.value);
+        if (event.target.matches?.('#representativeCropY')) representativeCropDraft.y = Number(event.target.value);
+        if (event.target.matches?.('#representativeCropZoom, #representativeCropX, #representativeCropY')) updateRepresentativeCropPreview();
       });
       chooser.addEventListener('pointerdown', event => {
         const preview = event.target.closest?.('#representativeCropPreview');
@@ -824,7 +884,11 @@
     const preview = document.getElementById('representativeCropPreview');
     const image = document.getElementById('representativeCropImage');
     const slider = document.getElementById('representativeCropZoom');
+    const xSlider = document.getElementById('representativeCropX');
+    const ySlider = document.getElementById('representativeCropY');
     const value = document.getElementById('representativeCropZoomValue');
+    const xValue = document.getElementById('representativeCropXValue');
+    const yValue = document.getElementById('representativeCropYValue');
     if (!draft || !preview || !image) return;
     const crop = normalizeRepresentativeCrop(draft);
     Object.assign(draft, crop);
@@ -832,18 +896,19 @@
     image.style.objectFit = crop.mode === 'crop' ? 'cover' : 'contain';
     image.style.objectPosition = crop.x + '% ' + crop.y + '%';
     image.style.transform = crop.mode === 'crop' ? 'scale(' + crop.zoom + ')' : 'none';
-    if (slider) {
-      slider.value = String(crop.zoom);
-      slider.disabled = crop.mode !== 'crop';
-    }
+    if (slider) { slider.value = String(crop.zoom); slider.disabled = crop.mode !== 'crop'; }
+    if (xSlider) { xSlider.value = String(crop.x); xSlider.disabled = crop.mode !== 'crop'; }
+    if (ySlider) { ySlider.value = String(crop.y); ySlider.disabled = crop.mode !== 'crop'; }
     if (value) value.textContent = crop.zoom.toFixed(2) + '배';
+    if (xValue) xValue.textContent = Math.round(crop.x) + '%';
+    if (yValue) yValue.textContent = Math.round(crop.y) + '%';
     document.querySelectorAll('[data-representative-crop-mode]').forEach(button => {
       button.classList.toggle('active', button.dataset.representativeCropMode === crop.mode);
     });
     const hint = document.getElementById('representativeCropHint');
     if (hint) hint.textContent = crop.mode === 'crop'
-      ? '사진을 드래그해 메인 화면에 보여줄 부분을 고르세요. 확대 배율도 조절할 수 있습니다.'
-      : '사진 전체가 메인 화면에 보입니다. 원하는 부분만 보여주려면 확대 자르기를 선택하세요.';
+      ? '사진을 드래그하거나 가로·세로 위치 막대를 움직여 보여줄 부분을 정하세요. 0은 왼쪽/위쪽, 100은 오른쪽/아래쪽입니다.'
+      : '사진 전체가 메인 화면에 보입니다. 일부 확대를 선택하면 가로·세로 위치를 따로 조절할 수 있어요.';
   }
 
   async function saveRepresentativePhotoCrop() {
@@ -884,8 +949,6 @@
     chooserObjectURLs = [];
     representativeCropDrag = null;
 
-    // Refresh shared crop settings when available; local preferences remain usable
-    // even when the optional Supabase column has not yet been added.
     if (typeof window.loadFamilyHomeFeaturedCrops === 'function') {
       try { await window.loadFamilyHomeFeaturedCrops(); } catch (error) {
         console.warn('[대표사진 구도 불러오기]', error);
@@ -904,9 +967,17 @@
     const list = state.photos.filter(photo => String(photo.tripId) === String(tripId));
     if (!list.length) {
       holder.innerHTML = '<div class="expense-empty">아직 등록된 사진이 없습니다. 위에서 사진을 선택하고 여행 기록을 저장하면 여기에 표시됩니다.</div>';
-      tray.innerHTML = '<div class="photo-selected-empty">위 사진 목록에서 대표사진을 지정하면 이곳에 큰 미리보기와 구도 조절 기능이 나타납니다.</div>';
+      tray.innerHTML = '<div class="photo-selected-empty">사진을 대표사진으로 선택하면 이곳에서 확대 위치와 배율을 조절할 수 있습니다.</div>';
       representativeCropDraft = null;
       return;
+    }
+
+    const validPhotoIds = new Set(list.map(photo => String(photo.id)));
+    const selectedIds = getTripCoverPhotoIds(trip).filter(id => validPhotoIds.has(String(id))).slice(0, 3);
+    if (selectedIds.length !== getTripCoverPhotoIds(trip).length) {
+      trip.coverPhotoIds = selectedIds;
+      trip.coverPhotoId = selectedIds[0] || null;
+      saveLocalState(state);
     }
 
     holder.innerHTML = '';
@@ -920,8 +991,9 @@
       }
       if (token !== coverRenderToken) return;
 
-      const isSelected = String(trip?.coverPhotoId || '') === String(photo.id);
-      const isDefaultDisplay = !trip?.coverPhotoId && index === 0;
+      const selectedIndex = selectedIds.indexOf(String(photo.id));
+      const isSelected = selectedIndex >= 0;
+      const isDefaultDisplay = !selectedIds.length && index === 0;
       const card = document.createElement('article');
       card.className = 'photo-manage-card' + (isSelected ? ' is-selected' : '');
 
@@ -947,7 +1019,9 @@
       name.textContent = photo.name || '여행 사진';
       name.title = photo.name || '여행 사진';
       const status = document.createElement('small');
-      status.textContent = isSelected ? '⭐ 현재 대표사진' : (isDefaultDisplay ? '기본 카드 표시 사진' : '앨범 사진');
+      status.textContent = isSelected
+        ? '⭐ 대표사진 ' + (selectedIndex + 1) + ' / 3'
+        : (isDefaultDisplay ? '기본 표시 사진' : '앨범 사진');
       details.append(name, status);
 
       const actions = document.createElement('div');
@@ -955,9 +1029,9 @@
       const choose = document.createElement('button');
       choose.type = 'button';
       choose.className = 'photo-manage-set';
-      choose.textContent = isSelected ? '대표사진 지정됨' : '대표사진으로 지정';
+      choose.textContent = isSelected ? '선택 해제' : '대표사진 추가';
       choose.dataset.setCoverPhoto = String(photo.id);
-      choose.disabled = isSelected;
+      choose.disabled = !isSelected && selectedIds.length >= 3;
 
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -970,27 +1044,41 @@
       holder.appendChild(card);
     }
 
-    const representative = list.find(photo => String(photo.id) === String(trip?.coverPhotoId || '')) || list[0];
-    const isExplicitRepresentative = !!trip?.coverPhotoId;
+    const fallbackPhoto = list[0];
+    const activeId = selectedIds.includes(String(activeRepresentativePhotoId))
+      ? String(activeRepresentativePhotoId)
+      : (selectedIds[0] || String(fallbackPhoto.id));
+    const representative = list.find(photo => String(photo.id) === activeId) || fallbackPhoto;
+    activeRepresentativePhotoId = String(representative.id);
     const imageUrl = previewUrls.get(String(representative.id));
-    const savedCropMap = readRepresentativeCropMap();
-    const crop = normalizeRepresentativeCrop(savedCropMap[String(representative.id)] || {});
+    const cropMap = readRepresentativeCropMap();
+    const crop = normalizeRepresentativeCrop(cropMap[String(representative.id)] || {});
     representativeCropDraft = {
       photoId: String(representative.id),
-      mode: crop.mode,
-      x: crop.x,
-      y: crop.y,
-      zoom: crop.zoom
+      mode: crop.mode, x: crop.x, y: crop.y, zoom: crop.zoom
     };
+
+    const selectedChips = selectedIds.length
+      ? selectedIds.map((id, selectedIndex) => {
+          const photo = list.find(item => String(item.id) === id);
+          if (!photo) return '';
+          const url = previewUrls.get(id);
+          return `<button type="button" class="photo-selected-chip ${id === activeId ? 'active' : ''}" data-select-representative-crop="${escapeHTML(id)}">
+            ${url ? `<img src="${url}" alt="" />` : '<span>📷</span>'}
+            <span><b>${selectedIndex + 1}번</b><small>${escapeHTML(photo.name || '여행 사진')}</small></span>
+          </button>`;
+        }).join('')
+      : '<div class="photo-selected-empty-inline">아직 직접 선택한 대표사진이 없습니다. 첫 사진이 기본으로 표시됩니다.</div>';
 
     tray.innerHTML = `
       <div class="photo-selected-heading">
-        <div><h5>⭐ 선택한 대표사진 미리보기</h5><p>${isExplicitRepresentative ? '현재 지정된 대표사진입니다.' : '아직 직접 지정하지 않아 첫 번째 사진을 기본으로 표시하고 있습니다.'}</p></div>
-        <span class="photo-selected-status">${isExplicitRepresentative ? '대표사진' : '기본 사진'}</span>
+        <div><h5>⭐ 대표사진 미리보기 · ${selectedIds.length}/3장 선택</h5><p>${selectedIds.length ? '아래 사진을 눌러 각각의 구도를 따로 조절할 수 있습니다.' : '위 사진 중 최대 3장을 대표사진으로 추가해 주세요.'}</p></div>
+        <span class="photo-selected-status">${selectedIds.length} / 3장</span>
       </div>
+      <div class="photo-selected-chips">${selectedChips}</div>
       <div class="photo-selected-preview ${crop.mode === 'crop' ? 'is-crop-mode' : ''}" id="representativeCropPreview">
         ${imageUrl ? '<img id="representativeCropImage" alt="선택한 대표사진 미리보기" draggable="false" />' : '<span class="photo-selected-missing">사진 미리보기를 불러오지 못했습니다.</span>'}
-        <span class="photo-selected-preview-label">첫 화면 큰 사진 미리보기</span>
+        <span class="photo-selected-preview-label">메인 화면 큰 사진 미리보기</span>
       </div>
       <div class="photo-selected-controls">
         <div class="photo-selected-mode">
@@ -1000,16 +1088,22 @@
         <label class="photo-selected-zoom">확대 배율 <b id="representativeCropZoomValue">${crop.zoom.toFixed(2)}배</b>
           <input type="range" id="representativeCropZoom" min="1" max="2.6" step="0.05" value="${crop.zoom}" ${crop.mode === 'crop' ? '' : 'disabled'} />
         </label>
-        <p id="representativeCropHint" class="photo-selected-hint">${crop.mode === 'crop' ? '사진을 드래그해 메인 화면에 보여줄 부분을 고르세요.' : '사진 전체가 메인 화면에 보입니다.'}</p>
-        <button type="button" class="photo-selected-save" data-save-representative-crop>구도 저장</button>
+        <label class="photo-selected-position">가로 위치 <b id="representativeCropXValue">${Math.round(crop.x)}%</b>
+          <input type="range" id="representativeCropX" min="0" max="100" step="1" value="${crop.x}" ${crop.mode === 'crop' ? '' : 'disabled'} />
+          <small>0 왼쪽 · 100 오른쪽</small>
+        </label>
+        <label class="photo-selected-position">세로 위치 <b id="representativeCropYValue">${Math.round(crop.y)}%</b>
+          <input type="range" id="representativeCropY" min="0" max="100" step="1" value="${crop.y}" ${crop.mode === 'crop' ? '' : 'disabled'} />
+          <small>0 위쪽 · 100 아래쪽</small>
+        </label>
+        <p id="representativeCropHint" class="photo-selected-hint">${crop.mode === 'crop' ? '사진을 드래그하거나 위치 조절 막대를 움직여 원하는 부분을 선택하세요.' : '사진 전체가 메인 화면에 보입니다.'}</p>
+        <button type="button" class="photo-selected-save" data-save-representative-crop>이 사진의 구도 저장</button>
       </div>
     `;
     const selectedImage = document.getElementById('representativeCropImage');
     if (selectedImage && imageUrl) {
       selectedImage.src = imageUrl;
-      selectedImage.style.objectFit = crop.mode === 'crop' ? 'cover' : 'contain';
-      selectedImage.style.objectPosition = crop.x + '% ' + crop.y + '%';
-      selectedImage.style.transform = crop.mode === 'crop' ? 'scale(' + crop.zoom + ')' : 'none';
+      updateRepresentativeCropPreview();
     }
   }
 
@@ -1030,15 +1124,19 @@
 
     photoDeletesInProgress.add(id);
     const photoSnapshot = { ...photo };
-    const wasRepresentative = String(trip.coverPhotoId || '') === id;
-    const previousCoverId = trip.coverPhotoId || null;
+    const previousCoverIds = getTripCoverPhotoIds(trip);
+    const wasRepresentative = previousCoverIds.includes(id);
 
     try {
       // Optimistic UI: remove the tile immediately while the cloud request continues.
       const optimistic = localState();
       optimistic.photos = optimistic.photos.filter(item => String(item.id) !== id);
       const optimisticTrip = optimistic.trips.find(item => String(item.id) === String(tripId));
-      if (wasRepresentative && optimisticTrip) optimisticTrip.coverPhotoId = null;
+      if (optimisticTrip) {
+        const nextCoverIds = getTripCoverPhotoIds(optimisticTrip).filter(value => value !== id);
+        optimisticTrip.coverPhotoIds = nextCoverIds;
+        optimisticTrip.coverPhotoId = nextCoverIds[0] || null;
+      }
       saveLocalState(optimistic);
 
       await window.refreshFamilyTravelHome?.();
@@ -1047,15 +1145,7 @@
       window.refreshFamilyTripDetail?.(tripId);
       toast('사진을 화면에서 먼저 제거했습니다. 클라우드 정리 중…');
 
-      if (wasRepresentative) {
-        const journal = await getJournalRow(tripId, 2);
-        if (journal) {
-          const { error } = await client.from('journals')
-            .update({ cover_photo_id: null })
-            .eq('id', journal.id);
-          if (error) throw new Error('대표사진 연결을 해제하지 못했습니다: ' + error.message);
-        }
-      }
+      if (wasRepresentative) await updateTripCoverSelection(tripId, previousCoverIds.filter(value => value !== id));
 
       await window.deleteFamilyPhotoFromCloud(id);
       await deleteLocalPhotoBlobs([id]);
@@ -1073,22 +1163,15 @@
         restored.photos.push(photoSnapshot);
       }
       const restoredTrip = restored.trips.find(item => String(item.id) === String(tripId));
-      if (wasRepresentative && restoredTrip && !restoredTrip.coverPhotoId) {
-        restoredTrip.coverPhotoId = previousCoverId;
+      if (wasRepresentative && restoredTrip) {
+        restoredTrip.coverPhotoIds = previousCoverIds;
+        restoredTrip.coverPhotoId = previousCoverIds[0] || null;
       }
       saveLocalState(restored);
 
-      if (wasRepresentative && previousCoverId) {
-        try {
-          const journal = await getJournalRow(tripId, 2);
-          if (journal) {
-            await client.from('journals')
-              .update({ cover_photo_id: previousCoverId })
-              .eq('id', journal.id);
-          }
-        } catch (restoreError) {
-          console.warn('[사진 삭제] 대표사진 연결 복원 실패', restoreError);
-        }
+      if (wasRepresentative && previousCoverIds.length) {
+        try { await updateTripCoverSelection(tripId, previousCoverIds); }
+        catch (restoreError) { console.warn('[사진 삭제] 대표사진 연결 복원 실패', restoreError); }
       }
 
       await window.refreshFamilyTravelHome?.();
@@ -1102,25 +1185,43 @@
   }
 
   async function setRepresentativePhoto(photoId) {
-    if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 대표사진을 변경할 수 있습니다.');
+    if (familyProfile?.role !== 'parent') throw new Error('부모 계정에서만 사진을 지정할 수 있습니다.');
     const tripId = document.getElementById('editTripId')?.value || '';
     if (!tripId) return;
     const state = localState();
     const trip = state.trips.find(item => String(item.id) === String(tripId));
     if (!trip) return;
-    if (photoId && !state.photos.some(photo => String(photo.id) === String(photoId) && String(photo.tripId) === String(tripId))) {
-      throw new Error('선택한 사진을 이 여행에서 찾지 못했습니다.');
+
+    const currentIds = getTripCoverPhotoIds(trip);
+    let nextIds = currentIds;
+    if (photoId == null || String(photoId) === '') {
+      nextIds = [];
+      activeRepresentativePhotoId = null;
+    } else {
+      const id = String(photoId);
+      if (!state.photos.some(photo => String(photo.id) === id && String(photo.tripId) === String(tripId))) {
+        throw new Error('선택한 사진을 이 여행에서 찾지 못했습니다.');
+      }
+      if (currentIds.includes(id)) {
+        nextIds = currentIds.filter(value => value !== id);
+        if (activeRepresentativePhotoId === id) activeRepresentativePhotoId = nextIds[0] || null;
+      } else {
+        if (currentIds.length >= 3) {
+          toast('여행마다 대표사진은 최대 3장까지 선택할 수 있습니다.');
+          return;
+        }
+        nextIds = [...currentIds, id];
+        activeRepresentativePhotoId = id;
+      }
     }
-    trip.coverPhotoId = photoId || null;
+
+    trip.coverPhotoIds = nextIds;
+    trip.coverPhotoId = nextIds[0] || null;
     saveLocalState(state);
-    const journal = await getJournalRow(tripId, 2);
-    if (journal) {
-      const { error } = await client.from('journals').update({ cover_photo_id: photoId || null }).eq('id', journal.id);
-      if (error) throw new Error('대표사진을 가족 계정에 저장하지 못했습니다: ' + error.message);
-    }
+    await updateTripCoverSelection(tripId, nextIds);
     await window.refreshFamilyTravelHome?.();
     await renderRepresentativeChooser();
-    renderCardCovers();
+    await renderCardCovers();
     window.refreshFamilyTripDetail?.(tripId);
   }
 
@@ -1142,18 +1243,19 @@
       if (!trip || !cover) continue;
 
       const tripPhotos = state.photos.filter(photo => String(photo.tripId) === String(trip.id));
-      const chosenPhotoExists = !!trip.coverPhotoId && tripPhotos.some(photo => String(photo.id) === String(trip.coverPhotoId));
-      if (trip.coverPhotoId && !chosenPhotoExists) {
-        trip.coverPhotoId = null;
+      const previousIds = getTripCoverPhotoIds(trip);
+      const validIds = previousIds.filter(id => tripPhotos.some(photo => String(photo.id) === id));
+      if (validIds.length !== previousIds.length) {
+        trip.coverPhotoIds = validIds;
+        trip.coverPhotoId = validIds[0] || null;
         saveLocalState(state);
         if (familyProfile.role === 'parent') {
-          client.from('journals').update({ cover_photo_id: null }).eq('client_id', String(trip.id))
-            .then(({ error }) => { if (error) console.warn('[대표사진] 삭제된 사진 연결을 정리하지 못했습니다.', error.message); });
+          updateTripCoverSelection(trip.id, validIds)
+            .catch(error => console.warn('[대표사진] 삭제된 사진 연결을 정리하지 못했습니다.', error.message));
         }
       }
-
-      const displayPhoto = chosenPhotoExists
-        ? tripPhotos.find(photo => String(photo.id) === String(trip.coverPhotoId))
+      const displayPhoto = validIds.length
+        ? tripPhotos.find(photo => String(photo.id) === String(validIds[0]))
         : tripPhotos[0];
       let img = cover.querySelector('img');
 
@@ -1412,7 +1514,8 @@
       const categoryLabel = categories.slice(0,3).map(escapeHTML).join(' · ') || '지출 내역';
       const trip = state.trips.find(item => String(item.id) === String(journal.client_id));
       const tripPhotos = state.photos.filter(photo => String(photo.tripId) === String(journal.client_id));
-      const cover = tripPhotos.find(photo => String(photo.id) === String(trip?.coverPhotoId)) || tripPhotos[0];
+      const coverIds = getTripCoverPhotoIds(trip);
+      const cover = tripPhotos.find(photo => String(photo.id) === String(coverIds[0] || trip?.coverPhotoId || '')) || tripPhotos[0];
       let thumbnail = journal.trip_type === 'overseas' ? '🌏' : '🌿';
       if (cover) {
         try {
