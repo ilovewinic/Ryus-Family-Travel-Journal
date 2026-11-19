@@ -845,6 +845,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     const crop = normalizeHomeFeatureCrop(draft);
     draft.x = crop.x; draft.y = crop.y; draft.zoom = crop.zoom; draft.mode = crop.mode;
     frame.classList.toggle('is-crop-mode', crop.mode === 'crop');
+    frame.style.touchAction = crop.mode === 'crop' ? 'none' : 'pan-y';
     frame.style.setProperty('--crop-x', crop.x + '%');
     frame.style.setProperty('--crop-y', crop.y + '%');
     frame.style.setProperty('--crop-zoom', String(crop.zoom));
@@ -872,7 +873,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     $('homeFeaturedCropModeFull')?.classList.toggle('active', crop.mode === 'full');
     $('homeFeaturedCropModeCrop')?.classList.toggle('active', crop.mode === 'crop');
     $('homeFeaturedCropHint').textContent = crop.mode === 'crop'
-      ? '사진을 손가락이나 마우스로 끌어 원하는 부분을 중앙에 놓으세요.'
+      ? '한 손가락으로 위치를 옮기고 두 손가락을 벌리거나 모아 확대·축소하세요.'
       : '현재처럼 사진 전체가 보이도록 표시합니다. 확대 자르기를 선택하면 원하는 부분을 조절할 수 있어요.';
   }
 
@@ -907,6 +908,12 @@ style="background:#fff0ec;color:#bd655b;display:none;">
     $('homeFeaturedCropSubtitle').textContent = '메인 화면의 큰 사진에만 적용됩니다. 주변의 작은 겹침 사진은 전체 사진 그대로 보여요.';
     $('homeFeaturedCropImage').src = '';
     $('homeFeaturedCropModal').classList.add('open');
+    const heroRect = $('homeFeaturedBanner')?.getBoundingClientRect();
+    const cropFrame = $('homeFeaturedCropPreview');
+    if (cropFrame && heroRect?.width > 0 && heroRect?.height > 0) {
+      cropFrame.style.setProperty('aspect-ratio', String(heroRect.width / heroRect.height), 'important');
+      cropFrame.style.setProperty('max-height', 'none', 'important');
+    }
     updateHomeFeaturedCropPreview();
     try {
       const url = await resizedURL(String(photo.id), 1800);
@@ -1592,32 +1599,73 @@ style="background:#fff0ec;color:#bd655b;display:none;">
   $('homeFeaturedCropZoom')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.zoom=Number(event.target.value)||1;updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropX')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.x=Number(event.target.value);updateHomeFeaturedCropPreview();}});
   $('homeFeaturedCropY')?.addEventListener('input',event=>{if(homeFeaturedCropDraft){homeFeaturedCropDraft.y=Number(event.target.value);updateHomeFeaturedCropPreview();}});
+  const homeCropPointers = new Map();
+  let homeCropGesture = null;
+  const rebaseHomeCropGesture = () => {
+    const points = [...homeCropPointers.entries()];
+    if (points.length >= 2) {
+      const a = points[0][1], b = points[1][1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      homeCropGesture = {
+        type: 'pinch', distance: Math.max(1, Math.hypot(dx, dy)),
+        zoom: Number(homeFeaturedCropDraft?.zoom) || 1,
+        x: Number(homeFeaturedCropDraft?.x) || 50,
+        y: Number(homeFeaturedCropDraft?.y) || 50,
+        midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2
+      };
+    } else if (points.length === 1) {
+      const [pointerId, point] = points[0];
+      homeCropGesture = { type: 'drag', pointerId, x: point.x, y: point.y };
+    } else homeCropGesture = null;
+    homeFeaturedCropDrag = homeCropGesture;
+  };
+  const finishHomeCropPointer = event => {
+    if (event && homeCropPointers.has(event.pointerId)) homeCropPointers.delete(event.pointerId);
+    rebaseHomeCropGesture();
+  };
   $('homeFeaturedCropPreview')?.addEventListener('pointerdown',event=>{
     if(!homeFeaturedCropDraft || homeFeaturedCropDraft.mode!=='crop')return;
+    if(event.pointerType==='mouse' && event.button!==0)return;
     const frame=$('homeFeaturedCropPreview');
-    homeFeaturedCropDrag={pointerId:event.pointerId,x:event.clientX,y:event.clientY};
+    homeCropPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
     try{frame.setPointerCapture(event.pointerId);}catch(_){}
+    rebaseHomeCropGesture();
     event.preventDefault();
   });
   $('homeFeaturedCropPreview')?.addEventListener('pointermove',event=>{
-    if(!homeFeaturedCropDrag || !homeFeaturedCropDraft || event.pointerId!==homeFeaturedCropDrag.pointerId)return;
+    if(!homeCropPointers.has(event.pointerId) || !homeFeaturedCropDraft || homeFeaturedCropDraft.mode!=='crop')return;
+    homeCropPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
     const frame=$('homeFeaturedCropPreview');
     const rect=frame.getBoundingClientRect();
-    const dx=event.clientX-homeFeaturedCropDrag.x;
-    const dy=event.clientY-homeFeaturedCropDrag.y;
-    const zoom=Math.max(1.01,Number(homeFeaturedCropDraft.zoom)||1);
-    const maxOffsetX=Math.max(1,rect.width*(zoom-1)/2);
-    const maxOffsetY=Math.max(1,rect.height*(zoom-1)/2);
-    homeFeaturedCropDraft.x=Math.max(0,Math.min(100,homeFeaturedCropDraft.x-dx/maxOffsetX*50));
-    homeFeaturedCropDraft.y=Math.max(0,Math.min(100,homeFeaturedCropDraft.y-dy/maxOffsetY*50));
-    homeFeaturedCropDrag.x=event.clientX;
-    homeFeaturedCropDrag.y=event.clientY;
+    const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+    if(homeCropPointers.size>=2){
+      const points=[...homeCropPointers.values()],a=points[0],b=points[1];
+      const dx=b.x-a.x,dy=b.y-a.y,distance=Math.max(1,Math.hypot(dx,dy));
+      const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+      if(!homeCropGesture || homeCropGesture.type!=='pinch')rebaseHomeCropGesture();
+      const base=homeCropGesture;
+      const zoom=clamp(base.zoom*distance/base.distance,1,2.6);
+      const maxOffsetX=Math.max(1,rect.width*(zoom-1)/2);
+      const maxOffsetY=Math.max(1,rect.height*(zoom-1)/2);
+      homeFeaturedCropDraft.zoom=zoom;
+      homeFeaturedCropDraft.x=clamp(base.x-(midX-base.midX)/maxOffsetX*50,0,100);
+      homeFeaturedCropDraft.y=clamp(base.y-(midY-base.midY)/maxOffsetY*50,0,100);
+    }else{
+      if(!homeCropGesture || homeCropGesture.type!=='drag')rebaseHomeCropGesture();
+      const point=homeCropPointers.get(event.pointerId),base=homeCropGesture;
+      const zoom=Math.max(1,Number(homeFeaturedCropDraft.zoom)||1);
+      const maxOffsetX=Math.max(1,rect.width*(zoom-1)/2);
+      const maxOffsetY=Math.max(1,rect.height*(zoom-1)/2);
+      homeFeaturedCropDraft.x=clamp(homeFeaturedCropDraft.x-(point.x-base.x)/maxOffsetX*50,0,100);
+      homeFeaturedCropDraft.y=clamp(homeFeaturedCropDraft.y-(point.y-base.y)/maxOffsetY*50,0,100);
+      base.x=point.x;base.y=point.y;
+    }
     updateHomeFeaturedCropPreview();
     event.preventDefault();
   });
-  const finishHomeCropDrag=event=>{if(homeFeaturedCropDrag && (!event || event.pointerId===homeFeaturedCropDrag.pointerId))homeFeaturedCropDrag=null;};
-  $('homeFeaturedCropPreview')?.addEventListener('pointerup',finishHomeCropDrag);
-  $('homeFeaturedCropPreview')?.addEventListener('pointercancel',finishHomeCropDrag);
+  $('homeFeaturedCropPreview')?.addEventListener('pointerup',finishHomeCropPointer);
+  $('homeFeaturedCropPreview')?.addEventListener('pointercancel',finishHomeCropPointer);
+  $('homeFeaturedCropPreview')?.addEventListener('lostpointercapture',finishHomeCropPointer);
 
   $('homeFeaturedChoiceList')?.addEventListener('click',event=>{
     const cropButton = event.target.closest?.('[data-home-feature-crop]');
