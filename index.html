@@ -163,7 +163,7 @@ main{min-width:0}.hello{display:flex;align-items:flex-end;justify-content:space-
 }
 
 </style>
-  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=pinch-hint-20261119-1" />
+  <link rel="stylesheet" href="./ryus-family-travel-theme.css?v=address-map-20261119-1" />
   <link rel="stylesheet" href="./ryus-family-travel-home-stack.css?v=20261118-stack1" />
 </head>
 <body>
@@ -428,7 +428,7 @@ style="background:#fff0ec;color:#bd655b;display:none;">
 </button><button class="secondary" id="closeLightbox">닫기</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
-<script src="./ryus-family-travel-supabase-auth.js?v=pinch-ratio-reset-20261119-2"></script>
+<script src="./ryus-family-travel-supabase-auth.js?v=fix-toast-address-map-20261119-1"></script>
 <script src="./ryus-family-travel-r2.js?v=cleanup-correct-name-20261119-2"></script>
   <script src="./ryus-family-travel-detail-cover.js?v=three-covers-20261119-1"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -1307,7 +1307,13 @@ style="background:#fff0ec;color:#bd655b;display:none;">
       const lng = hasPoint ? Number($('tripLng').value) : 127.8;
       try {
         ensurePickerMap(lat, lng, hasPoint ? 15 : 6);
-        if (hasPoint) setPickerPoint(lat, lng, false);
+        if (hasPoint) {
+          setPickerPoint(lat, lng, false);
+        } else if (pickerMarker) {
+          pickerMap.removeLayer(pickerMarker);
+          pickerMarker = null;
+          $('coordNote').textContent = '지도를 눌러 여행 장소의 위치를 찍어주세요. 주소 검색으로 찾은 뒤 지도에서 위치를 미세 조정할 수도 있습니다.';
+        }
       } catch (error) {
         $('coordNote').textContent = error.message || '지도를 불러오지 못했습니다.';
       }
