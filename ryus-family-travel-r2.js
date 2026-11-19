@@ -116,6 +116,17 @@
     });
   }
 
+  async function deleteLocalBlob(id) {
+    const db = await openPhotoDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(DB_STORE, 'readwrite');
+      transaction.objectStore(DB_STORE).delete(String(id));
+      transaction.oncomplete = () => { db.close(); resolve(); };
+      transaction.onerror = () => { db.close(); reject(transaction.error); };
+      transaction.onabort = () => { db.close(); reject(transaction.error || new Error('기기 사진 캐시 삭제에 실패했습니다.')); };
+    });
+  }
+
   async function callWorker(key, method, blob) {
     accessToken = getAccessToken() || accessToken;
     const headers = { Authorization: `Bearer ${accessToken}` };
@@ -350,6 +361,76 @@ window.isFamilyPhotoParent = () => familyRole === 'parent';
     photoBlobCache.delete(String(photoId));
     return true;
   };
+
+  // Remove only the exact user-reported filenames. This also handles stale local
+  // copies and metadata rows that were left behind by an earlier partial deletion.
+  window.deleteFamilyPhotosByFileNames = async function(fileNames) {
+    if (familyRole !== 'parent') throw new Error('부모 계정에서만 사진 파일을 정리할 수 있습니다.');
+    const normalizeName = value => String(value || '').normalize('NFC').trim().split('/').pop().toLowerCase();
+    const targets = new Set((Array.isArray(fileNames) ? fileNames : []).map(normalizeName).filter(Boolean));
+    if (!targets.size) return { deleted: 0, names: [] };
+
+    const nameFromKey = objectKey => {
+      const leaf = String(objectKey || '').split('/').pop() || '';
+      const dash = leaf.indexOf('-');
+      return dash > 0 ? leaf.slice(dash + 1) : leaf;
+    };
+    const rows = await getPhotoRows();
+    const state = readSavedState();
+    const matchesName = value => targets.has(normalizeName(value));
+
+    const matchingRows = rows.filter(row =>
+      matchesName(row.file_name) || matchesName(nameFromKey(row.object_key))
+    );
+    const matchingLocal = state.photos.filter(photo =>
+      matchesName(photo.name) || matchesName(nameFromKey(photo.objectKey))
+    );
+
+    const keys = new Set();
+    matchingRows.forEach(row => { if (row.object_key) keys.add(String(row.object_key)); });
+    matchingLocal.forEach(photo => { if (photo.objectKey) keys.add(String(photo.objectKey)); });
+
+    // Never claim success or erase metadata if we cannot locate the actual R2 key.
+    if (!keys.size && (matchingRows.length || matchingLocal.length)) {
+      throw new Error('대상 사진의 R2 저장 위치를 찾지 못했습니다. 사진 메타데이터를 보존했습니다.');
+    }
+
+    for (const key of keys) await callWorker(key, 'DELETE');
+
+    for (const row of matchingRows) {
+      await rest(
+        `journal_photos?id=eq.${encodeURIComponent(row.id)}`,
+        { method: 'DELETE', prefer: 'return=minimal' }
+      );
+      const photoId = photoIdFromKey(row.object_key, row.id);
+      if (row.journal_id && photoId) {
+        await rest(
+          `journals?id=eq.${encodeURIComponent(row.journal_id)}&cover_photo_id=eq.${encodeURIComponent(photoId)}`,
+          { method: 'PATCH', body: { cover_photo_id: null }, prefer: 'return=minimal' }
+        );
+      }
+    }
+
+    const ids = new Set([
+      ...matchingRows.map(row => photoIdFromKey(row.object_key, row.id)),
+      ...matchingLocal.map(photo => String(photo.id))
+    ].filter(Boolean));
+
+    if (ids.size || matchingLocal.length) {
+      state.photos = state.photos.filter(photo =>
+        !ids.has(String(photo.id)) &&
+        !matchesName(photo.name) &&
+        !matchesName(nameFromKey(photo.objectKey))
+      );
+      saveStateDirect(state);
+      for (const id of ids) {
+        photoBlobCache.delete(String(id));
+        await deleteLocalBlob(id).catch(error => console.warn('[R2 사진 정리] 기기 캐시 삭제 실패:', error));
+      }
+    }
+
+    return { deleted: keys.size, names: [...targets] };
+  };
   
   function showMessage(message) {
     const banner = document.querySelector('.preview-banner');
@@ -379,6 +460,23 @@ window.isFamilyPhotoParent = () => familyRole === 'parent';
     if (!accessToken) throw new Error('Supabase 로그인 토큰을 찾지 못했습니다.');
     familyRole = await getFamilyRole();
     const result = await restoreRemotePhotos();
+    // User explicitly asked to remove these two exact image files. Clean both R2
+    // objects and Supabase rows, then remove their local metadata/cache as well.
+    if (familyRole === 'parent' && typeof window.deleteFamilyPhotosByFileNames === 'function') {
+      try {
+        const cleanup = await window.deleteFamilyPhotosByFileNames([
+          '20261002_144615.jpg',
+          'imshr_2026-11-13y11-54-51-898z.png'
+        ]);
+        if (cleanup.deleted > 0) {
+          showMessage('요청하신 사진 파일 ' + cleanup.deleted + '개를 클라우드와 가족 앨범에서 정리했습니다.');
+        }
+      } catch (error) {
+        console.error('[요청 사진 파일 정리]', error);
+        showMessage('요청하신 사진 파일 정리 중 문제가 발생했습니다. ' + (error.message || '새로고침 후 다시 시도해 주세요.'));
+      }
+    }
+
     // Remote metadata was read successfully; a failed image fetch should not disable normal photo sync.
     readyForSync = true;
     installStorageWatcher();
