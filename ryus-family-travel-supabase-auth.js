@@ -126,6 +126,8 @@
   let cardCoverRenderToken = 0;
   const coverObjectURLs = new Map();
   let chooserObjectURLs = [];
+  let representativeCropDraft = null;
+  let representativeCropDrag = null;
   const photoDeletesInProgress = new Set();
 
   function localState() {
@@ -647,7 +649,54 @@
       const chooser = document.createElement('div');
       chooser.id = 'representativePhotoChooser';
       chooser.className = 'family-extra-panel';
-      chooser.innerHTML = '<h4>📷 이 여행의 사진 관리</h4><p class="family-extra-help">저장된 사진을 확인하고, 각 사진을 대표사진으로 지정하거나 삭제할 수 있습니다. 대표사진은 별도 파일을 만들지 않고 이 앨범의 사진 중 한 장을 지정합니다. 사진을 삭제하면 가족 앨범에서도 삭제됩니다.</p><div id="coverChoiceGrid" class="cover-choice-grid photo-manage-grid"></div><button type="button" class="secondary" id="clearCoverChoice" style="margin-top:10px">대표사진 지정 해제</button>';
+      chooser.innerHTML = `
+        <h4>📷 이 여행의 사진 관리</h4>
+        <p class="family-extra-help">사진 미리보기는 전체가 보이도록 표시합니다. 이 여행의 대표사진은 1장만 지정할 수 있으며, 다른 사진을 선택하면 대표사진이 교체됩니다. 첫 화면에는 별도 설정에서 최대 5개 여행을 선택해 각각의 대표사진을 보여줄 수 있습니다.</p>
+        <div id="coverChoiceGrid" class="cover-choice-grid photo-manage-grid"></div>
+        <section id="representativePhotoTray" class="photo-selected-tray" aria-live="polite"></section>
+        <button type="button" class="secondary" id="clearCoverChoice" style="margin-top:10px">대표사진 지정 해제</button>`;
+      chooser.addEventListener('click', event => {
+        const modeButton = event.target.closest?.('[data-representative-crop-mode]');
+        if (modeButton && representativeCropDraft) {
+          representativeCropDraft.mode = modeButton.dataset.representativeCropMode === 'crop' ? 'crop' : 'full';
+          updateRepresentativeCropPreview();
+          return;
+        }
+        if (event.target.closest?.('[data-save-representative-crop]')) {
+          saveRepresentativePhotoCrop().catch(showEnhancementError);
+        }
+      });
+      chooser.addEventListener('input', event => {
+        if (event.target.matches?.('#representativeCropZoom') && representativeCropDraft) {
+          representativeCropDraft.zoom = Number(event.target.value) || 1;
+          updateRepresentativeCropPreview();
+        }
+      });
+      chooser.addEventListener('pointerdown', event => {
+        const preview = event.target.closest?.('#representativeCropPreview');
+        if (!preview || !representativeCropDraft || representativeCropDraft.mode !== 'crop') return;
+        representativeCropDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+        try { preview.setPointerCapture(event.pointerId); } catch (_) {}
+        event.preventDefault();
+      });
+      chooser.addEventListener('pointermove', event => {
+        if (!representativeCropDrag || !representativeCropDraft || event.pointerId !== representativeCropDrag.pointerId) return;
+        const preview = document.getElementById('representativeCropPreview');
+        if (!preview) return;
+        const rect = preview.getBoundingClientRect();
+        const dx = event.clientX - representativeCropDrag.x;
+        const dy = event.clientY - representativeCropDrag.y;
+        representativeCropDraft.x = Math.max(0, Math.min(100, representativeCropDraft.x - dx / Math.max(1, rect.width) * 100));
+        representativeCropDraft.y = Math.max(0, Math.min(100, representativeCropDraft.y - dy / Math.max(1, rect.height) * 100));
+        representativeCropDrag.x = event.clientX;
+        representativeCropDrag.y = event.clientY;
+        updateRepresentativeCropPreview();
+      });
+      const finishRepresentativeCropDrag = event => {
+        if (representativeCropDrag && (!event || event.pointerId === representativeCropDrag.pointerId)) representativeCropDrag = null;
+      };
+      chooser.addEventListener('pointerup', finishRepresentativeCropDrag);
+      chooser.addEventListener('pointercancel', finishRepresentativeCropDrag);
       existingPhotos.insertAdjacentElement('afterend', chooser);
     }
 
@@ -754,15 +803,100 @@
     alert(error?.message || '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
   }
 
+  function readRepresentativeCropMap() {
+    try {
+      const value = JSON.parse(localStorage.getItem('ryusFamilyHomeFeatureCrops_v1') || '{}');
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch (_) { return {}; }
+  }
+  function normalizeRepresentativeCrop(value = {}) {
+    const clamp = (number, min, max) => Math.max(min, Math.min(max, number));
+    const numeric = (candidate, fallback) => Number.isFinite(Number(candidate)) ? Number(candidate) : fallback;
+    return {
+      mode: value.mode === 'crop' ? 'crop' : 'full',
+      x: clamp(numeric(value.x, 50), 0, 100),
+      y: clamp(numeric(value.y, 50), 0, 100),
+      zoom: clamp(numeric(value.zoom, 1), 1, 2.6)
+    };
+  }
+  function updateRepresentativeCropPreview() {
+    const draft = representativeCropDraft;
+    const preview = document.getElementById('representativeCropPreview');
+    const image = document.getElementById('representativeCropImage');
+    const slider = document.getElementById('representativeCropZoom');
+    const value = document.getElementById('representativeCropZoomValue');
+    if (!draft || !preview || !image) return;
+    const crop = normalizeRepresentativeCrop(draft);
+    Object.assign(draft, crop);
+    preview.classList.toggle('is-crop-mode', crop.mode === 'crop');
+    image.style.objectFit = crop.mode === 'crop' ? 'cover' : 'contain';
+    image.style.objectPosition = crop.x + '% ' + crop.y + '%';
+    image.style.transform = crop.mode === 'crop' ? 'scale(' + crop.zoom + ')' : 'none';
+    if (slider) {
+      slider.value = String(crop.zoom);
+      slider.disabled = crop.mode !== 'crop';
+    }
+    if (value) value.textContent = crop.zoom.toFixed(2) + '배';
+    document.querySelectorAll('[data-representative-crop-mode]').forEach(button => {
+      button.classList.toggle('active', button.dataset.representativeCropMode === crop.mode);
+    });
+    const hint = document.getElementById('representativeCropHint');
+    if (hint) hint.textContent = crop.mode === 'crop'
+      ? '사진을 드래그해 메인 화면에 보여줄 부분을 고르세요. 확대 배율도 조절할 수 있습니다.'
+      : '사진 전체가 메인 화면에 보입니다. 원하는 부분만 보여주려면 확대 자르기를 선택하세요.';
+  }
+
+  async function saveRepresentativePhotoCrop() {
+    if (!representativeCropDraft) return;
+    const button = document.querySelector('[data-save-representative-crop]');
+    if (button) button.disabled = true;
+    try {
+      const crop = normalizeRepresentativeCrop(representativeCropDraft);
+      const crops = readRepresentativeCropMap();
+      crops[String(representativeCropDraft.photoId)] = crop;
+      localStorage.setItem('ryusFamilyHomeFeatureCrops_v1', JSON.stringify(crops));
+      let synced = true;
+      if (typeof window.saveFamilyHomeFeaturedCrops === 'function') {
+        const result = await window.saveFamilyHomeFeaturedCrops(crops);
+        synced = result?.synced !== false;
+      }
+      await window.refreshFamilyHomeFeaturedCropSettings?.();
+      await renderRepresentativeChooser();
+      if (synced) {
+        toast('대표사진 구도를 저장했습니다. 🌷');
+      } else {
+        toast('이 기기에는 저장했습니다. 가족 기기 동기화는 Supabase SQL 설정 후 가능합니다.');
+      }
+    } catch (error) {
+      console.error('[대표사진 구도 저장]', error);
+      showEnhancementError(error);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   async function renderRepresentativeChooser() {
     const holder = document.getElementById('coverChoiceGrid');
-    if (!holder) return;
+    const tray = document.getElementById('representativePhotoTray');
+    if (!holder || !tray) return;
     const token = ++coverRenderToken;
     chooserObjectURLs.forEach(url => URL.revokeObjectURL(url));
     chooserObjectURLs = [];
+    representativeCropDrag = null;
+
+    // Refresh shared crop settings when available; local preferences remain usable
+    // even when the optional Supabase column has not yet been added.
+    if (typeof window.loadFamilyHomeFeaturedCrops === 'function') {
+      try { await window.loadFamilyHomeFeaturedCrops(); } catch (error) {
+        console.warn('[대표사진 구도 불러오기]', error);
+      }
+    }
+
     const tripId = document.getElementById('editTripId')?.value || '';
     if (!tripId) {
-      holder.innerHTML = '<div class="expense-empty">여행 기록을 먼저 저장해 주세요. 사진을 추가한 뒤 이곳에서 관리할 수 있습니다.</div>';
+      holder.innerHTML = '<div class="expense-empty">여행 기록을 먼저 저장해 주세요.</div>';
+      tray.innerHTML = '<div class="photo-selected-empty">여행을 저장한 뒤 대표사진을 선택할 수 있습니다.</div>';
+      representativeCropDraft = null;
       return;
     }
     const state = localState();
@@ -770,10 +904,13 @@
     const list = state.photos.filter(photo => String(photo.tripId) === String(tripId));
     if (!list.length) {
       holder.innerHTML = '<div class="expense-empty">아직 등록된 사진이 없습니다. 위에서 사진을 선택하고 여행 기록을 저장하면 여기에 표시됩니다.</div>';
+      tray.innerHTML = '<div class="photo-selected-empty">위 사진 목록에서 대표사진을 지정하면 이곳에 큰 미리보기와 구도 조절 기능이 나타납니다.</div>';
+      representativeCropDraft = null;
       return;
     }
 
     holder.innerHTML = '';
+    const previewUrls = new Map();
     for (let index = 0; index < list.length; index += 1) {
       const photo = list[index];
       let blob = null;
@@ -793,9 +930,10 @@
       if (blob) {
         const img = document.createElement('img');
         img.alt = photo.name || '여행 사진';
-        const url = URL.createObjectURL(blob);
-        chooserObjectURLs.push(url);
-        img.src = url;
+        img.loading = 'lazy';
+        img.src = URL.createObjectURL(blob);
+        chooserObjectURLs.push(img.src);
+        previewUrls.set(String(photo.id), img.src);
         preview.appendChild(img);
       } else {
         const missing = document.createElement('span');
@@ -830,6 +968,48 @@
       actions.append(choose, remove);
       card.append(preview, details, actions);
       holder.appendChild(card);
+    }
+
+    const representative = list.find(photo => String(photo.id) === String(trip?.coverPhotoId || '')) || list[0];
+    const isExplicitRepresentative = !!trip?.coverPhotoId;
+    const imageUrl = previewUrls.get(String(representative.id));
+    const savedCropMap = readRepresentativeCropMap();
+    const crop = normalizeRepresentativeCrop(savedCropMap[String(representative.id)] || {});
+    representativeCropDraft = {
+      photoId: String(representative.id),
+      mode: crop.mode,
+      x: crop.x,
+      y: crop.y,
+      zoom: crop.zoom
+    };
+
+    tray.innerHTML = `
+      <div class="photo-selected-heading">
+        <div><h5>⭐ 선택한 대표사진 미리보기</h5><p>${isExplicitRepresentative ? '현재 지정된 대표사진입니다.' : '아직 직접 지정하지 않아 첫 번째 사진을 기본으로 표시하고 있습니다.'}</p></div>
+        <span class="photo-selected-status">${isExplicitRepresentative ? '대표사진' : '기본 사진'}</span>
+      </div>
+      <div class="photo-selected-preview ${crop.mode === 'crop' ? 'is-crop-mode' : ''}" id="representativeCropPreview">
+        ${imageUrl ? '<img id="representativeCropImage" alt="선택한 대표사진 미리보기" draggable="false" />' : '<span class="photo-selected-missing">사진 미리보기를 불러오지 못했습니다.</span>'}
+        <span class="photo-selected-preview-label">첫 화면 큰 사진 미리보기</span>
+      </div>
+      <div class="photo-selected-controls">
+        <div class="photo-selected-mode">
+          <button type="button" data-representative-crop-mode="full" class="${crop.mode === 'full' ? 'active' : ''}">전체 사진</button>
+          <button type="button" data-representative-crop-mode="crop" class="${crop.mode === 'crop' ? 'active' : ''}">일부 확대</button>
+        </div>
+        <label class="photo-selected-zoom">확대 배율 <b id="representativeCropZoomValue">${crop.zoom.toFixed(2)}배</b>
+          <input type="range" id="representativeCropZoom" min="1" max="2.6" step="0.05" value="${crop.zoom}" ${crop.mode === 'crop' ? '' : 'disabled'} />
+        </label>
+        <p id="representativeCropHint" class="photo-selected-hint">${crop.mode === 'crop' ? '사진을 드래그해 메인 화면에 보여줄 부분을 고르세요.' : '사진 전체가 메인 화면에 보입니다.'}</p>
+        <button type="button" class="photo-selected-save" data-save-representative-crop>구도 저장</button>
+      </div>
+    `;
+    const selectedImage = document.getElementById('representativeCropImage');
+    if (selectedImage && imageUrl) {
+      selectedImage.src = imageUrl;
+      selectedImage.style.objectFit = crop.mode === 'crop' ? 'cover' : 'contain';
+      selectedImage.style.objectPosition = crop.x + '% ' + crop.y + '%';
+      selectedImage.style.transform = crop.mode === 'crop' ? 'scale(' + crop.zoom + ')' : 'none';
     }
   }
 
